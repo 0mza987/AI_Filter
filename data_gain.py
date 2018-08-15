@@ -104,4 +104,5 @@ def check_file():
 
 
 if __name__ == '__main__':
+    # get_blank_from_dc()
     check_file()
