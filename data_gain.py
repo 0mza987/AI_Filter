@@ -1,3 +1,4 @@
+# -*-coding:utf-8-*-
 import os
 import re
 import sys 
@@ -6,16 +7,87 @@ import glob
 import json
 import shutil
 import random
+import base64
+import zerorpc
 import requests
 import traceback
-
 import numpy as np
+
 
 IMAGE_PATH  = './dataset/blank_image'
 DATA_PATH   = './dataset/blank_data' 
 if not os.path.exists(IMAGE_PATH): os.makedirs(IMAGE_PATH)
 if not os.path.exists(DATA_PATH): os.makedirs(DATA_PATH)
 
+
+def _str_to_img_base64(str_image, FLAG_color=False):
+    """ convert base64 string to image """
+    FLAG_decode = cv2.IMREAD_COLOR if FLAG_color else cv2.IMREAD_GRAYSCALE
+    img_encoded = np.frombuffer(base64.b64decode(str_image), dtype=np.uint8)
+    img = cv2.imdecode(img_encoded, FLAG_decode)
+    return img
+
+
+def _img_to_str_base64(image):
+    """ convert image to base64 string """
+    img_encode = cv2.imencode('.jpg', image)[1]
+    img_base64 = base64.b64encode(img_encode)
+    return img_base64
+
+
+def _data_convert_image(data):
+    """ 
+    standard image read and load online version
+    """
+    if isinstance(data, basestring):
+        if data.startswith(('http:', 'https:')):
+            resp = requests.get(data).content
+            image = np.asarray(bytearray(resp), dtype=np.uint8)
+            image = cv2.imdecode(image, cv2.IMREAD_GRAYSCALE)
+        elif data.endswith(('.jpg', '.png')):
+            data = data.replace('\\', '/')
+            image = cv2.imread(data, cv2.IMREAD_GRAYSCALE)
+        else:
+            image = np.asarray(bytearray(data), dtype=np.uint8)
+            image = cv2.imdecode(image, cv2.IMREAD_GRAYSCALE)
+    else:
+        image = data
+    return image
+
+
+def recognition():
+    ''' Re-recognize all images and update results '''
+    # RPC client
+    c_en_predict = zerorpc.Client(heartbeat=None, timeout=240)
+    c_en_predict.connect('tcp://192.168.1.115:12001')
+
+    updated_data = []
+    overall_data = json.load(open('./dataset/blank_data_overall.json'))
+    for index, item in enumerate(overall_data[0:]):
+        if index % 1000 == 0: print 'Processing {} / {}'.format(index, len(overall_data))
+        fname = item['local_addr']
+        try:
+            image_inst = {
+                'img_str': _img_to_str_base64(_data_convert_image(fname)), 
+                'fname': os.path.basename(fname)
+                }
+            resp = c_en_predict.predict_image([image_inst], 'blank')
+            result = json.loads(resp['data']).values()[0]
+            # update recognition result for local data
+            item['prob'] = result['prob']
+            item['prob_val'] = result['prob_val']
+            item['detectResult'] = result['text'].strip()
+            updated_data.append(item)
+        except:
+            print traceback.format_exc()
+            print 'Recognition failed. Index: {}'.format(index+1)
+    json.dump(updated_data, open('./dataset/updated_overall.json', 'w'))
+    print 'Original: {}. New: {}.'.format(len(overall_data), len(updated_data))
+    random.shuffle(updated_data)
+    json.dump(updated_data[0:10000], open('./dataset/updated_sample.json', 'w'))
+
+
+    
 
 def get_data_by_exam(eid):
     '''get data from data center'''
@@ -105,4 +177,4 @@ def check_file():
 
 if __name__ == '__main__':
     # get_blank_from_dc()
-    check_file()
+    recognition()
