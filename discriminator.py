@@ -2,6 +2,7 @@ import os
 import glob
 import json
 
+from Bio import pairwise2
 
 PUNCT = [',', '.', '?', ':', '!', ';']
 DATA_FILE = [
@@ -14,6 +15,30 @@ def ans_equals_ref(ans, ref):
     LIST_ref = ref.split('@@')
     return True if ans in LIST_ref else False
 
+
+def locate_prob(raw_text, text, prob):
+    '''Align two text to get proper probabilities.
+
+    Example: locate_prob('| faith.','faith',[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8])
+        
+        raw_text = '| faith.'   text = 'faith'
+
+        prob:  [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]   
+        align1:  |       f   a   i   t   h   .
+        align2:  -   -   f   a   i   t   h   -
+        text_prob:     [0.3,0.4,0.5,0.6,0.7]           
+    
+    Note:   text must be a subsequence of raw_text
+    '''    
+
+    if raw_text=='' or text='': return []
+    assert(len(prob) == len(raw_text))
+    raw_text = raw_text.replace('-', '`')
+    text = text.replace('-', '`')
+    alignments = pairwise2.align.globalmx(raw_text, text, 2, -1)
+    align1, align2, score, begin, end = alignments[-1]
+    text_prob = [prob[index] for (index, item) in enumerate(align1) if align2[index]!='-']
+    return text_prob
 
 def check_pass_rate(fname=''):
     ''' return pass rate of the data file '''
@@ -30,7 +55,7 @@ def check_pass_rate(fname=''):
         if filter_condition(item):
             pass_cnt_new += 1
 
-    print fname
+    print fname, len(dataset)
     print 'New rate: {}. Old rate: {}'.format(pass_cnt_new*1.0/len(dataset), pass_cnt_original*1.0/len(dataset))
 
 
@@ -38,9 +63,9 @@ def filter_condition(blank_data):
     ''' specific conditions to select blank data '''
     res = False
     if ans_equals_ref(blank_data['detectResult'], blank_data['reference']) \
-        and blank_data['prob_val'] >= 0.5 \
-        and blank_data['prob_val'] < 0.9 \
-        and blank_data['detectResult'] != blank_data['manuallyResult']:
+        and blank_data['prob_val'] >= 0.5 :
+        # and blank_data['prob_val'] < 0.9 \
+        # and blank_data['detectResult'] != blank_data['manuallyResult']:
         res =True
     return res 
 
@@ -64,8 +89,8 @@ def discriminator(blank_data):
     Output: 1. FLAG_CORRECT: true if student's answer is right, vice versa.
             2. FLAG_CONFIDENT: true if no need for human re-check, vice versa.        
     '''
-    FLAG_CORRECT = False
-    FLAG_CONFIDENT = False
+    FLAG_CORRECT    = False
+    FLAG_CONFIDENT  = False
     
     text        = blank_data['detectResult']
     reference   = blank_data['reference']
@@ -82,6 +107,7 @@ def discriminator(blank_data):
 if __name__=='__main__':
     # check_pass_rate()
     filter()
+    
 
 
 
