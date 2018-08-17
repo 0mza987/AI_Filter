@@ -55,6 +55,12 @@ def _data_convert_image(data):
     return image
 
 
+def ans_equals_ref(ans, ref):
+    ''' Incase reference has multiple answers '''
+    LIST_ref = ref.split('@@')
+    return True if ans in LIST_ref else False
+
+
 def recognition():
     ''' Re-recognize all images and update results '''
     # RPC client
@@ -64,6 +70,7 @@ def recognition():
     updated_data = []
     overall_data = json.load(open('./dataset/blank_data_overall.json'))
     for index, item in enumerate(overall_data[0:]):
+        if item['local_addr'].split('/')[-2] == '6b262f90ea': continue # invalid exam id
         if index % 1000 == 0: print 'Processing {} / {}'.format(index, len(overall_data))
         fname = item['local_addr']
         try:
@@ -76,7 +83,13 @@ def recognition():
             # update recognition result for local data
             item['prob'] = result['prob']
             item['prob_val'] = result['prob_val']
+            item['raw_text'] = result['raw_text']
             item['detectResult'] = result['text'].strip()
+            # re-generate the original 'marked' result
+            if ans_equals_ref(item['detectResult'],item['reference']) and item['prob_val'] > 0.9:
+                item['marked'] = False
+            else:
+                item['marked'] = True
             updated_data.append(item)
         except:
             print traceback.format_exc()
@@ -103,7 +116,7 @@ def get_data_by_exam(eid):
     
     for item in exam_data:
         # re-generate the original 'marked' result
-        if item['detectResult'] == item['reference'] and item['prob'] > 0.9:
+        if ans_equals_ref(item['detectResult'],item['reference']) and item['prob'] > 0.9:
             item['marked'] = False
         else:
             item['marked'] = True
