@@ -104,6 +104,23 @@ def filter():
     json.dump(res, open('./dataset/residual_data.json', 'w'))
 
 
+def min_distance(s1, s2):
+    ''' calculate min edit distance of two words '''
+    n = len(s1)
+    m = len(s2)
+    matrix = np.zeros((n+1,m+1), np.int32)
+    for i in xrange(m+1):
+        matrix[0][i] = i
+    for i in xrange(n+1):
+        matrix[i][0] = i
+    for i in xrange(1,n+1):
+        for j in xrange(1,m+1):
+            temp = min(matrix[i-1][j]+1, matrix[i][j-1]+1)
+            d = 0 if s1[i-1]==s2[j-1] else 1
+            matrix[i][j] = min(temp, matrix[i-1][j-1]+d)
+    return matrix[n][m]
+
+
 def discriminator(blank_data):
     '''
     Rules to judge if the blank data should pass ai filter automatically thus no need for human re-check.
