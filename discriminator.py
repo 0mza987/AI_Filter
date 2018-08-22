@@ -1,6 +1,9 @@
+# -*-coding:utf-8-*-
+
 import os
 import glob
 import json
+import numpy as np
 
 from Bio import pairwise2
 
@@ -21,24 +24,25 @@ def locate_prob(raw_text, text, prob):
 
     Example: locate_prob('| faith.','faith',[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8])
         
-        raw_text = '| faith.'   text = 'faith'
+        raw_text = '| faith.'   text = 'fath'
 
         prob:  [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]   
         align1:  |       f   a   i   t   h   .
-        align2:  -   -   f   a   i   t   h   -
-        text_prob:     [0.3,0.4,0.5,0.6,0.7]           
+        align2:  -   -   f   a   -   t   h   -
+        text_prob:     [0.3,0.4    ,0.6,0.7]           
     
     Note:   text must be a subsequence of raw_text
     '''    
 
-    if raw_text=='' or text='': return []
+    if raw_text=='' or text=='': return []
     assert(len(prob) == len(raw_text))
     raw_text = raw_text.replace('-', '`')
     text = text.replace('-', '`')
     alignments = pairwise2.align.globalmx(raw_text, text, 2, -1)
     align1, align2, score, begin, end = alignments[-1]
-    text_prob = [prob[index] for (index, item) in enumerate(align1) if align2[index]!='-']
+    text_prob = [prob[index] for (index, item) in enumerate(align1[begin:end]) if align2[index]!='-']
     return text_prob
+
 
 def check_pass_rate(fname=''):
     ''' return pass rate of the data file '''
@@ -50,10 +54,10 @@ def check_pass_rate(fname=''):
     pass_cnt_original = 0
     pass_cnt_new = 0
     for item in dataset:
-        if item['marked'] == False:
+        # if item['marked'] == False:
+        if discriminator(item)[1] == True:
             pass_cnt_original += 1
-        if filter_condition(item):
-            pass_cnt_new += 1
+        # elif filter_condition(item):
 
     print fname, len(dataset)
     print 'New rate: {}. Old rate: {}'.format(pass_cnt_new*1.0/len(dataset), pass_cnt_original*1.0/len(dataset))
@@ -62,23 +66,41 @@ def check_pass_rate(fname=''):
 def filter_condition(blank_data):
     ''' specific conditions to select blank data '''
     res = False
-    if ans_equals_ref(blank_data['detectResult'], blank_data['reference']) \
-        and blank_data['prob_val'] >= 0.5 :
-        # and blank_data['prob_val'] < 0.9 \
-        # and blank_data['detectResult'] != blank_data['manuallyResult']:
-        res =True
+
+    raw_text    = blank_data['raw_text'].lower()
+    text        = blank_data['detectResult'].lower()
+    reference   = blank_data['reference'].lower()
+    prob        = blank_data['prob']
+    prob_avg    = blank_data['prob_val']
+    human_text  = blank_data['manuallyResult'].lower()
+
+    # if not ans_equals_ref(blank_data['detectResult'], blank_data['reference']) \
+    #     and blank_data['prob_val'] >= 0.9 \
+    #     and blank_data['detectResult'] != blank_data['manuallyResult']:
+    #     # and blank_data['prob_val'] < 0.9 \
+    #     res =True
+
+    # if raw_text == '' and len(reference)>1:
+    #     res = True
+
+    if not reference.isdigit() and len(reference) > 1:
+        if not ans_equals_ref(text, reference) and ans_equals_ref(human_text, reference):
+            res = True
+
+    # if reference=='':
+    #     res =True
     return res 
 
 
 def filter():
     ''' filter data with certain conditions '''
-    fname = DATA_FILE[1]
+    fname = DATA_FILE[0]
     dataset = json.load(open('./dataset/{}'.format(fname)))
     res = []
     for item in dataset:
-        if filter_condition(item):
+        if discriminator(item)[1]==False and filter_condition(item):
             res.append(item)
-    print '{} out of {} items are left.'.format(len(res), len(dataset))
+    print '{} out of {} items are left. Ratio: {}'.format(len(res), len(dataset), len(res)*1.0/len(dataset))
     json.dump(res, open('./dataset/residual_data.json', 'w'))
 
 
@@ -92,21 +114,56 @@ def discriminator(blank_data):
     FLAG_CORRECT    = False
     FLAG_CONFIDENT  = False
     
-    text        = blank_data['detectResult']
-    reference   = blank_data['reference']
+    raw_text    = blank_data['raw_text'].lower()
+    text        = blank_data['detectResult'].lower()
+    reference   = blank_data['reference'].lower()
     prob        = blank_data['prob']
     prob_avg    = blank_data['prob_val']
 
-    # 1. 
+    # 1. 识别结果与答案相等，且识别概率在0.5以上
     if ans_equals_ref(text, reference) and prob_avg >= 0.5:
         FLAG_CORRECT = True
         FLAG_CONFIDENT = True
-        return FLAG_CORRECT, FLAG_CONFIDENT
+
+    # 2. 识别结果为空，且答案长度大于1（模型对一两个字符的答案以及数字的识别效果不佳，易出现空白结果）
+    elif raw_text == '' and len(reference)>1:
+        FLAG_CORRECT = False
+        FLAG_CONFIDENT = True
+
+    # 3. 原始识别结果为一个删除符号，最终结果为空，易出现情况：学生修改后的结果未被识别出。需要运营检查
+    elif raw_text == '|' and text == '':
+        FLAG_CORRECT = False
+        FLAG_CONFIDENT = False
+
+    # 4. 答案为单个字符以及数字的情况，单独处理
+    elif reference.isdigit() or len(reference) < 2:
+        pass
+    
+    # 5. 多选题单独处理
+    elif '@@' in reference:
+        pass
+    
+    # 6. 识别结果后半部分包含标准答案时，很大可能是学生作答正确但识别多识别出了字符的情况，例如：
+    #    {reference = 'ffice', text = 'o ffice'}, 模型将填空题首字母印刷体o也识别出来了
+    elif len(text) >= len(reference) and text[-len(reference):] == reference and len(reference)>=(len(text)/2):
+        # 若text前半部分为以下词汇，则判为错误 (e.g. {reference: 'know', text: 'to know'})
+        watch_out = ['at','to','in','the','has','have','had','be','being','is','was','are','been']
+        # 部分易混淆的特殊情况，可单独添加. {reference: 'other', text: 'another'}
+        key_words = ['another', 'international']
+        FLAG_CONFIDENT = True
+        if text[0:-len(reference)].strip().lower() not in watch_out and text not in key_words:
+            FLAG_CORRECT = True
+        else:
+            FLAG_CORRECT = False
+
+    # elif 
+
+    return FLAG_CORRECT, FLAG_CONFIDENT
 
 
 if __name__=='__main__':
     # check_pass_rate()
-    filter()
+    # filter()
     
 
 

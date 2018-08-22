@@ -100,8 +100,6 @@ def recognition():
     json.dump(updated_data[0:10000], open('./dataset/updated_sample.json', 'w'))
 
 
-    
-
 def get_data_by_exam(eid):
     '''get data from data center'''
     URL = 'http://dcs.hexin.im/api/blank/getList'
@@ -153,6 +151,10 @@ def get_and_save_blank_image(blank_data):
 
 
 def get_blank_from_dc():
+    ''' 
+    pull data from data center, save data by exam id and overall data as well
+    select a portion of overall data as sample data.
+    '''
     overall_data = []
     LIST_failed = []
     LIST_eid = json.load(open('./dataset/list_eid.json'))
