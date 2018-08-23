@@ -3,6 +3,8 @@
 import os
 import glob
 import json
+import time
+import random
 import numpy as np
 
 from Bio import pairwise2
@@ -11,6 +13,11 @@ PUNCT = [',', '.', '?', ':', '!', ';']
 DATA_FILE = [
     'updated_sample.json',
     'updated_overall.json'
+]
+
+LIST_ALIAS = [
+    sorted(['v','r']),
+    sorted(['i','l'])
 ]
 
 def ans_equals_ref(ans, ref):
@@ -35,7 +42,7 @@ def locate_prob(raw_text, text, prob):
     '''    
 
     if raw_text=='' or text=='': return []
-    assert(len(prob) == len(raw_text))
+    if len(prob) != len(raw_text): return []
     raw_text = raw_text.replace('-', '`')
     text = text.replace('-', '`')
     alignments = pairwise2.align.globalmx(raw_text, text, 2, -1)
@@ -73,7 +80,11 @@ def filter_condition(blank_data):
     prob        = blank_data['prob']
     prob_avg    = blank_data['prob_val']
     human_text  = blank_data['manuallyResult'].lower()
+    score       = blank_data['score']
 
+    ref_size    = len(reference)
+    ans_size    = len(text)
+    # clean_prob  = locate_prob(raw_text, text, prob)
     # if not ans_equals_ref(blank_data['detectResult'], blank_data['reference']) \
     #     and blank_data['prob_val'] >= 0.9 \
     #     and blank_data['detectResult'] != blank_data['manuallyResult']:
@@ -83,9 +94,19 @@ def filter_condition(blank_data):
     # if raw_text == '' and len(reference)>1:
     #     res = True
 
-    if not reference.isdigit() and len(reference) > 1:
-        if not ans_equals_ref(text, reference) and ans_equals_ref(human_text, reference):
-            res = True
+    # f = discriminator(blank_data)
+    # if f[1]==True:
+    #     if f[0]==True and score==0:
+    #         res = True
+    #     elif f[0]==False and score!=0:
+    #         res=True
+        
+
+    # if not reference.isdigit() and ref_size > 1 and '@@' not in reference:
+    #     if min_distance(text, reference)>2 and ref_size>2 and score!=0:
+    #         res = True
+                    
+    
 
     # if reference=='':
     #     res =True
@@ -94,11 +115,12 @@ def filter_condition(blank_data):
 
 def filter():
     ''' filter data with certain conditions '''
-    fname = DATA_FILE[0]
+    fname = DATA_FILE[1]
     dataset = json.load(open('./dataset/{}'.format(fname)))
     res = []
     for item in dataset:
-        if discriminator(item)[1]==False and filter_condition(item):
+        # if discriminator(item)[1]==False and filter_condition(item):
+        if filter_condition(item):
             res.append(item)
     print '{} out of {} items are left. Ratio: {}'.format(len(res), len(dataset), len(res)*1.0/len(dataset))
     json.dump(res, open('./dataset/residual_data.json', 'w'))
@@ -108,7 +130,7 @@ def min_distance(s1, s2):
     ''' calculate min edit distance of two words '''
     n = len(s1)
     m = len(s2)
-    matrix = np.zeros((n+1,m+1), np.int32)
+    matrix = [([0]*(m+1)) for i in xrange(n+1)]
     for i in xrange(m+1):
         matrix[0][i] = i
     for i in xrange(n+1):
@@ -137,13 +159,16 @@ def discriminator(blank_data):
     prob        = blank_data['prob']
     prob_avg    = blank_data['prob_val']
 
+    ref_size    = len(reference)
+    ans_size    = len(text)
+
     # 1. 识别结果与答案相等，且识别概率在0.5以上
     if ans_equals_ref(text, reference) and prob_avg >= 0.5:
         FLAG_CORRECT = True
         FLAG_CONFIDENT = True
 
     # 2. 识别结果为空，且答案长度大于1（模型对一两个字符的答案以及数字的识别效果不佳，易出现空白结果）
-    elif raw_text == '' and len(reference)>1:
+    elif raw_text == '' and ref_size>1:
         FLAG_CORRECT = False
         FLAG_CONFIDENT = True
 
@@ -153,34 +178,48 @@ def discriminator(blank_data):
         FLAG_CONFIDENT = False
 
     # 4. 答案为单个字符以及数字的情况，单独处理
-    elif reference.isdigit() or len(reference) < 2:
+    elif reference.isdigit() or ref_size < 2:
         pass
     
     # 5. 多选题单独处理
     elif '@@' in reference:
         pass
     
-    # 6. 识别结果后半部分包含标准答案时，很大可能是学生作答正确但识别多识别出了字符的情况，例如：
+    # 6. 识别结果后半部分包含标准答案时。很大可能是学生作答正确但识别多识别出了字符的情况，例如：
     #    {reference = 'ffice', text = 'o ffice'}, 模型将填空题首字母印刷体o也识别出来了
-    elif len(text) >= len(reference) and text[-len(reference):] == reference and len(reference)>=(len(text)/2):
+    elif ans_size >= ref_size and text[-ref_size:] == reference and ref_size>=(ans_size/2):
         # 若text前半部分为以下词汇，则判为错误 (e.g. {reference: 'know', text: 'to know'})
         watch_out = ['at','to','in','the','has','have','had','be','being','is','was','are','been']
         # 部分易混淆的特殊情况，可单独添加. {reference: 'other', text: 'another'}
         key_words = ['another', 'international']
         FLAG_CONFIDENT = True
-        if text[0:-len(reference)].strip().lower() not in watch_out and text not in key_words:
+        if text[0:-ref_size].strip().lower() not in watch_out and text not in key_words:
             FLAG_CORRECT = True
         else:
             FLAG_CORRECT = False
 
-    # elif 
+    # 7. 对于易混淆字符的处理。若学生作答与正确答案只差一个字符，该字符属于易错字符且识别概率低于0.9，判为正确答案
+    #   {reference: 'move', text: 'more'}
+    elif min_distance(text, reference)==1 and ref_size>2 and ans_size==ref_size:
+        for i in xrange(ref_size):
+            if reference[i] != text[i]: 
+                char_pair = sorted([reference[i], text[i]])
+                if char_pair in LIST_ALIAS:
+                    clean_prob = locate_prob(raw_text, text, prob)
+                    # 注意这里可能返回空集合
+                    if clean_prob != [] and clean_prob[i] <= 0.9:
+                        FLAG_CORRECT = True
+                        FLAG_CONFIDENT = True
+                
 
     return FLAG_CORRECT, FLAG_CONFIDENT
 
 
 if __name__=='__main__':
-    # check_pass_rate()
+    TIME_s = time.time()
+    check_pass_rate()
     # filter()
+    print 'Time cost: {} s'.format(time.time()-TIME_s)
     
 
 
