@@ -63,6 +63,7 @@ def check_pass_rate(fname=''):
     for item in dataset:
         # if item['marked'] == False:
         if discriminator(item)[1] == True:
+        # if filter_condition(item):
             pass_cnt_original += 1
         # elif filter_condition(item):
 
@@ -74,25 +75,42 @@ def filter_condition(blank_data):
     ''' specific conditions to select blank data '''
     res = False
 
-    raw_text    = blank_data['raw_text'].lower()
-    text        = blank_data['detectResult'].lower()
-    reference   = blank_data['reference'].lower()
-    prob        = blank_data['prob']
-    prob_avg    = blank_data['prob_val']
-    human_text  = blank_data['manuallyResult'].lower()
-    score       = blank_data['score']
+    raw_text    = blank_data['raw_text'].lower()        # 原始识别结果，包含删除符号，标点符号
+    text        = blank_data['detectResult'].lower()    # 干净识别结果，只有字符与空格
+    reference   = blank_data['reference'].lower()       # 标准答案
+    prob        = blank_data['prob']                    # 对应原始识别结果的概率list
+    prob_avg    = blank_data['prob_val']                # 概率list的平均值
+    human_text  = blank_data['manuallyResult'].lower()  # 运营人员标注结果
+    score       = blank_data['score']                   # 该题的得分值
 
     ref_size    = len(reference)
     ans_size    = len(text)
     # clean_prob  = locate_prob(raw_text, text, prob)
-    # if not ans_equals_ref(blank_data['detectResult'], blank_data['reference']) \
-    #     and blank_data['prob_val'] >= 0.9 \
-    #     and blank_data['detectResult'] != blank_data['manuallyResult']:
-    #     # and blank_data['prob_val'] < 0.9 \
-    #     res =True
 
-    # if raw_text == '' and len(reference)>1:
+    # if ans_equals_ref(text, reference) and prob_avg >= 0.5:
+    #     res =False
+        
+    # elif '@@' in reference:
+    #     pass
+
+    # elif raw_text == '' and ref_size>1:
     #     res = True
+
+    # if raw_text == '|' and text == '':
+    #     res = True
+
+    # if (reference.isdigit() or ref_size==1)  and text=='' and score!=0:
+    #     res =True
+    # if min_distance(text, reference)==1 and ref_size>2 and ans_size==ref_size:
+    #     for i in xrange(ref_size):
+    #         if reference[i] != text[i]: 
+    #             char_pair = sorted([reference[i], text[i]])
+    #             if char_pair in LIST_ALIAS:
+    #                 clean_prob = locate_prob(raw_text, text, prob)
+    #                 # 注意这里可能返回空集合
+    #                 if clean_prob != [] and clean_prob[i] > 0.9:
+    #                     res = True
+
 
     # f = discriminator(blank_data)
     # if f[1]==True:
@@ -100,12 +118,14 @@ def filter_condition(blank_data):
     #         res = True
     #     elif f[0]==False and score!=0:
     #         res=True
-        
+    if ''.join(text.split(' ')) == ''.join(reference.split(' ')) and score==0:
+        res = True
 
     # if not reference.isdigit() and ref_size > 1 and '@@' not in reference:
     #     if min_distance(text, reference)>2 and ref_size>2 and score!=0:
     #         res = True
-                    
+        # if text!=reference and score!=0:
+        #     res = True
     
 
     # if reference=='':
@@ -115,12 +135,12 @@ def filter_condition(blank_data):
 
 def filter():
     ''' filter data with certain conditions '''
-    fname = DATA_FILE[1]
+    fname = DATA_FILE[0]
     dataset = json.load(open('./dataset/{}'.format(fname)))
     res = []
     for item in dataset:
-        # if discriminator(item)[1]==False and filter_condition(item):
-        if filter_condition(item):
+        if discriminator(item)[1]==False and filter_condition(item):
+        # if filter_condition(item):
             res.append(item)
     print '{} out of {} items are left. Ratio: {}'.format(len(res), len(dataset), len(res)*1.0/len(dataset))
     json.dump(res, open('./dataset/residual_data.json', 'w'))
@@ -153,11 +173,11 @@ def discriminator(blank_data):
     FLAG_CORRECT    = False
     FLAG_CONFIDENT  = False
     
-    raw_text    = blank_data['raw_text'].lower()
-    text        = blank_data['detectResult'].lower()
-    reference   = blank_data['reference'].lower()
-    prob        = blank_data['prob']
-    prob_avg    = blank_data['prob_val']
+    raw_text    = blank_data['raw_text'].lower()        # 原始识别结果，包含删除符号，标点符号
+    text        = blank_data['detectResult'].lower()    # 干净识别结果，只有字符
+    reference   = blank_data['reference'].lower()       # 标准答案
+    prob        = blank_data['prob']                    # 对应原始识别结果的概率list
+    prob_avg    = blank_data['prob_val']                # 概率list的平均值
 
     ref_size    = len(reference)
     ans_size    = len(text)
@@ -200,7 +220,7 @@ def discriminator(blank_data):
 
     # 7. 对于易混淆字符的处理。若学生作答与正确答案只差一个字符，该字符属于易错字符且识别概率低于0.9，判为正确答案
     #   {reference: 'move', text: 'more'}
-    elif min_distance(text, reference)==1 and ref_size>2 and ans_size==ref_size:
+    elif ref_size>2 and ans_size==ref_size and min_distance(text, reference)==1:
         for i in xrange(ref_size):
             if reference[i] != text[i]: 
                 char_pair = sorted([reference[i], text[i]])
@@ -210,7 +230,11 @@ def discriminator(blank_data):
                     if clean_prob != [] and clean_prob[i] <= 0.9:
                         FLAG_CORRECT = True
                         FLAG_CONFIDENT = True
-                
+
+    # 8. 识别结果中多出或者少了空格，大概率是正确答案
+    elif ''.join(text.split(' ')) == ''.join(reference.split(' ')) and prob_avg >= 0.5:
+        FLAG_CORRECT = True
+        FLAG_CONFIDENT = True
 
     return FLAG_CORRECT, FLAG_CONFIDENT
 
