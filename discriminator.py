@@ -1,6 +1,7 @@
 # -*-coding:utf-8-*-
 
 import os
+import cv2
 import glob
 import json
 import time
@@ -8,6 +9,7 @@ import random
 import numpy as np
 
 from Bio import pairwise2
+from data_gain import initialize_rpc, recognize_single, data_convert_image
 
 PUNCT = [',', '.', '?', ':', '!', ';']
 DATA_FILE = [
@@ -92,13 +94,19 @@ def filter_condition(blank_data):
         
     # elif '@@' in reference:
     #     pass
-    if blank_data['isLong'] == True:
-        res = True
-    # if reference.isdigit() or ref_size==1:
-    #     pass
-
-    # elif raw_text == '' and ref_size>1 and score!=0:
+    # if blank_data['isLong'] == True:
     #     res = True
+    if reference.isdigit() or ref_size==1:
+        pass
+
+    elif raw_text == '' and ref_size>1:
+        b = [len(ans) for ans in reference.split('@@') if len(ans)<2]
+        info = blank_img_check(blank_data['url'])
+        is_blank = info[0]
+        if b == [] and is_blank:
+            blank_data['raw_black_cnt'] = info[1]
+            blank_data['raw_black_ratio'] = info[2]
+            res = True
 
     # if raw_text == '|' and text == '':
     #     res = True
@@ -138,19 +146,19 @@ def filter_condition(blank_data):
 
 def filter():
     ''' filter data with certain conditions '''
-    fname = DATA_FILE[1]
+    fname = DATA_FILE[0]
     dataset = json.load(open('./dataset/{}'.format(fname)))
     res = []
     for item in dataset:
         # if discriminator(item)[1]==False and filter_condition(item):
         # if filter_condition(item):
         #     res.append(item)
-        # if discriminator(item)[2] == True:
-            # res.append(item)
-        r = discriminator(item)
-        if r[1]==True:
-            if r[0]==False and item['score']!=0 and item['raw_text']!='' and item['manuallyResult']==item['reference'] :
-                res.append(item)
+        if discriminator(item)[2] == True:
+            res.append(item)
+        # r = discriminator(item)
+        # if r[1]==True:
+        #     if r[0]==False and item['score']!=0 and item['raw_text']!='' and item['manuallyResult']==item['reference'] :
+        #         res.append(item)
             # if r[0]==True and item['score']==0:
             #     res.append(item)
     print '{} out of {} items are left. Ratio: {}'.format(len(res), len(dataset), len(res)*1.0/len(dataset))
@@ -173,6 +181,22 @@ def min_distance(s1, s2):
             matrix[i][j] = min(temp, matrix[i-1][j-1]+d)
     return matrix[n][m]
 
+img_cnt = 0
+
+def blank_img_check(url):
+    ''' check if the image is blank '''
+    img = data_convert_image(url)
+    global img_cnt 
+    img_cnt += 1
+    print img_cnt
+    h, w = img.shape
+    img = 255 - img[:, int(w*0.2):int(w*0.9)]
+    img = cv2.threshold(img, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
+    black_pixel_cnt = img.sum() / 255
+    black_pixel_ratio = black_pixel_cnt * 1.0 / (h * w)
+    FLAG_BLANK = True if black_pixel_ratio < 0.01 else False
+    return FLAG_BLANK, black_pixel_cnt, black_pixel_ratio
+
 
 def discriminator(blank_data):
     '''
@@ -181,6 +205,10 @@ def discriminator(blank_data):
     Output: 1. FLAG_CORRECT: true if student's answer is right, vice versa.
             2. FLAG_CONFIDENT: true if no need for human re-check, vice versa.        
     '''
+
+    # =============================================
+    # 准备需要的数据
+    # =============================================
     FLAG_CORRECT    = False
     FLAG_CONFIDENT  = False
     FLAG_test = False
@@ -192,9 +220,18 @@ def discriminator(blank_data):
     prob_avg    = blank_data['prob_val']                # 概率list的平均值
     human_text  = blank_data['manuallyResult'].lower()  # 运营人员标注结果
     score       = blank_data['score']                   # 该题的得分值
+    url         = blank_data['url']
+    # black_ratio = blank_data['black_ratio']
 
     ref_size    = len(reference)
     ans_size    = len(text)
+
+    # 针对多个答案的填空题
+    LIST_ANS    = reference.split('@@')
+    LIST_SIZE   = [len(ans) for ans in LIST_ANS if len(ans)<2]
+    LIST_NB     = [ans for ans in LIST_ANS if ans.isdigit()]
+    FLAG_SHORT  = True if LIST_SIZE!=[] else False
+    FLAG_DIGIT  = True if LIST_NB!=[] else False
 
     # generate pure text and reference
     LIST_toclean = [' ', '.', '-', '?', '!', ',', ':']
@@ -204,19 +241,27 @@ def discriminator(blank_data):
         pure_text   = pure_text.replace(item, '')
         pure_ref    = pure_ref.replace(item, '')
 
+
+    # =============================================
+    # 分步骤处理
+    # =============================================
+
     # 1. 识别结果与答案相等，且识别概率在0.5以上
     if ans_equals_ref(text, reference) and prob_avg >= 0.5:
         FLAG_CORRECT = True
         FLAG_CONFIDENT = True
 
     # 2. 答案为单个字符以及数字的情况，单独处理
-    elif reference.isdigit() or ref_size < 2:
+    elif FLAG_DIGIT or FLAG_SHORT:
         pass
 
     # 3. 识别结果为空，且答案长度大于1（模型对一两个字符的答案以及数字的识别效果不佳，易出现空白结果）
     elif raw_text == '' and ref_size>1:
-        FLAG_CORRECT = False
-        FLAG_CONFIDENT = True
+        # is_blank = blank_img_check(url)[0]
+        is_blank = True
+        if is_blank:
+            FLAG_CORRECT = False
+            FLAG_CONFIDENT = True
 
     # 4. 原始识别结果为一个删除符号，最终结果为空，易出现情况：学生修改后的结果未被识别出。需要运营检查
     elif raw_text == '|' and text == '':

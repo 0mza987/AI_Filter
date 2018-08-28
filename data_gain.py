@@ -35,7 +35,7 @@ def _img_to_str_base64(image):
     return img_base64
 
 
-def _data_convert_image(data):
+def data_convert_image(data):
     """ 
     standard image read and load online version
     """
@@ -61,11 +61,26 @@ def ans_equals_ref(ans, ref):
     return True if ans in LIST_ref else False
 
 
-def recognition():
-    ''' Re-recognize all images and update results '''
-    # RPC client
+def initialize_rpc():
     c_en_predict = zerorpc.Client(heartbeat=None, timeout=240)
     c_en_predict.connect('tcp://192.168.1.115:12001')
+    return c_en_predict
+
+
+def recognize_single(c_en_predict, fname):
+    image_inst = {
+        'img_str': _img_to_str_base64(data_convert_image(fname)), 
+        'fname': os.path.basename(fname)
+        }
+    resp = c_en_predict.predict_image([image_inst], 'blank')
+    result = json.loads(resp['data']).values()[0]
+    return result
+
+
+def recognition_all():
+    ''' Re-recognize all images and update results '''
+    # RPC client
+    c_en_predict = initialize_rpc()
 
     updated_data = []
     overall_data = json.load(open('./dataset/blank_data_overall.json'))
@@ -74,12 +89,7 @@ def recognition():
         if index % 1000 == 0: print 'Processing {} / {}'.format(index, len(overall_data))
         fname = item['local_addr']
         try:
-            image_inst = {
-                'img_str': _img_to_str_base64(_data_convert_image(fname)), 
-                'fname': os.path.basename(fname)
-                }
-            resp = c_en_predict.predict_image([image_inst], 'blank')
-            result = json.loads(resp['data']).values()[0]
+            result = recognize_single(c_en_predict, fname)
             # update recognition result for local data
             item['prob'] = result['prob']
             item['prob_val'] = result['prob_val']
