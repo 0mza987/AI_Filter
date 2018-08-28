@@ -36,7 +36,7 @@ def locate_prob(raw_text, text, prob):
         prob:  [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]   
         align1:  |       f   a   i   t   h   .
         align2:  -   -   f   a   -   t   h   -
-        text_prob:     [0.3,0.4    ,0.6,0.7]           
+        text_prob:     [0.3,0.4,    0.6,0.7]           
     
     Note:   text must be a subsequence of raw_text
     '''    
@@ -92,15 +92,18 @@ def filter_condition(blank_data):
         
     # elif '@@' in reference:
     #     pass
+    if blank_data['isLong'] == True:
+        res = True
+    # if reference.isdigit() or ref_size==1:
+    #     pass
 
-    # elif raw_text == '' and ref_size>1:
+    # elif raw_text == '' and ref_size>1 and score!=0:
     #     res = True
 
     # if raw_text == '|' and text == '':
     #     res = True
 
-    # if (reference.isdigit() or ref_size==1)  and text=='' and score!=0:
-    #     res =True
+
     # if min_distance(text, reference)==1 and ref_size>2 and ans_size==ref_size:
     #     for i in xrange(ref_size):
     #         if reference[i] != text[i]: 
@@ -118,8 +121,8 @@ def filter_condition(blank_data):
     #         res = True
     #     elif f[0]==False and score!=0:
     #         res=True
-    if ''.join(text.split(' ')) == ''.join(reference.split(' ')) and score==0:
-        res = True
+    # if ''.join(text.split(' ')) == ''.join(reference.split(' ')) and score==0:
+    #     res = True
 
     # if not reference.isdigit() and ref_size > 1 and '@@' not in reference:
     #     if min_distance(text, reference)>2 and ref_size>2 and score!=0:
@@ -135,13 +138,21 @@ def filter_condition(blank_data):
 
 def filter():
     ''' filter data with certain conditions '''
-    fname = DATA_FILE[0]
+    fname = DATA_FILE[1]
     dataset = json.load(open('./dataset/{}'.format(fname)))
     res = []
     for item in dataset:
-        if discriminator(item)[1]==False and filter_condition(item):
+        # if discriminator(item)[1]==False and filter_condition(item):
         # if filter_condition(item):
-            res.append(item)
+        #     res.append(item)
+        # if discriminator(item)[2] == True:
+            # res.append(item)
+        r = discriminator(item)
+        if r[1]==True:
+            if r[0]==False and item['score']!=0 and item['raw_text']!='' and item['manuallyResult']==item['reference'] :
+                res.append(item)
+            # if r[0]==True and item['score']==0:
+            #     res.append(item)
     print '{} out of {} items are left. Ratio: {}'.format(len(res), len(dataset), len(res)*1.0/len(dataset))
     json.dump(res, open('./dataset/residual_data.json', 'w'))
 
@@ -172,34 +183,45 @@ def discriminator(blank_data):
     '''
     FLAG_CORRECT    = False
     FLAG_CONFIDENT  = False
-    
+    FLAG_test = False
+
     raw_text    = blank_data['raw_text'].lower()        # 原始识别结果，包含删除符号，标点符号
-    text        = blank_data['detectResult'].lower()    # 干净识别结果，只有字符
+    text        = blank_data['detectResult'].lower()    # 干净识别结果，只有字符与空格
     reference   = blank_data['reference'].lower()       # 标准答案
     prob        = blank_data['prob']                    # 对应原始识别结果的概率list
     prob_avg    = blank_data['prob_val']                # 概率list的平均值
+    human_text  = blank_data['manuallyResult'].lower()  # 运营人员标注结果
+    score       = blank_data['score']                   # 该题的得分值
 
     ref_size    = len(reference)
     ans_size    = len(text)
+
+    # generate pure text and reference
+    LIST_toclean = [' ', '.', '-', '?', '!', ',', ':']
+    pure_text   = text
+    pure_ref    = reference
+    for item in LIST_toclean:
+        pure_text   = pure_text.replace(item, '')
+        pure_ref    = pure_ref.replace(item, '')
 
     # 1. 识别结果与答案相等，且识别概率在0.5以上
     if ans_equals_ref(text, reference) and prob_avg >= 0.5:
         FLAG_CORRECT = True
         FLAG_CONFIDENT = True
 
-    # 2. 识别结果为空，且答案长度大于1（模型对一两个字符的答案以及数字的识别效果不佳，易出现空白结果）
+    # 2. 答案为单个字符以及数字的情况，单独处理
+    elif reference.isdigit() or ref_size < 2:
+        pass
+
+    # 3. 识别结果为空，且答案长度大于1（模型对一两个字符的答案以及数字的识别效果不佳，易出现空白结果）
     elif raw_text == '' and ref_size>1:
         FLAG_CORRECT = False
         FLAG_CONFIDENT = True
 
-    # 3. 原始识别结果为一个删除符号，最终结果为空，易出现情况：学生修改后的结果未被识别出。需要运营检查
+    # 4. 原始识别结果为一个删除符号，最终结果为空，易出现情况：学生修改后的结果未被识别出。需要运营检查
     elif raw_text == '|' and text == '':
         FLAG_CORRECT = False
         FLAG_CONFIDENT = False
-
-    # 4. 答案为单个字符以及数字的情况，单独处理
-    elif reference.isdigit() or ref_size < 2:
-        pass
     
     # 5. 多选题单独处理
     elif '@@' in reference:
@@ -208,15 +230,13 @@ def discriminator(blank_data):
     # 6. 识别结果后半部分包含标准答案时。很大可能是学生作答正确但识别多识别出了字符的情况，例如：
     #    {reference = 'ffice', text = 'o ffice'}, 模型将填空题首字母印刷体o也识别出来了
     elif ans_size >= ref_size and text[-ref_size:] == reference and ref_size>=(ans_size/2):
-        # 若text前半部分为以下词汇，则判为错误 (e.g. {reference: 'know', text: 'to know'})
-        watch_out = ['at','to','in','the','has','have','had','be','being','is','was','are','been']
+        # 若text前半部分为以下词汇，则不进行机器判定(e.g. {reference: 'know', text: 'to know'})
+        watch_out = ['at','to','in','the','has','have','had','be','being','is','was','are','been','im','more','less','un']
         # 部分易混淆的特殊情况，可单独添加. {reference: 'other', text: 'another'}
         key_words = ['another', 'international']
-        FLAG_CONFIDENT = True
         if text[0:-ref_size].strip().lower() not in watch_out and text not in key_words:
             FLAG_CORRECT = True
-        else:
-            FLAG_CORRECT = False
+            FLAG_CONFIDENT = True
 
     # 7. 对于易混淆字符的处理。若学生作答与正确答案只差一个字符，该字符属于易错字符且识别概率低于0.9，判为正确答案
     #   {reference: 'move', text: 'more'}
@@ -232,17 +252,27 @@ def discriminator(blank_data):
                         FLAG_CONFIDENT = True
 
     # 8. 识别结果中多出或者少了空格，大概率是正确答案
-    elif ''.join(text.split(' ')) == ''.join(reference.split(' ')) and prob_avg >= 0.5:
+    elif pure_ref == pure_text and prob_avg >= 0.5:
         FLAG_CORRECT = True
         FLAG_CONFIDENT = True
+        
 
-    return FLAG_CORRECT, FLAG_CONFIDENT
+    # 9. 编辑距离大于2，且平均置信度高于0.9，判为错误
+    elif min_distance(pure_text, pure_ref)>2 and '|' not in raw_text and prob_avg>0.9:
+        FLAG_CORRECT = False
+        FLAG_CONFIDENT = True
+
+    # DEV
+    # elif score!=0:
+    #     FLAG_test = True
+
+    return FLAG_CORRECT, FLAG_CONFIDENT, FLAG_test
 
 
 if __name__=='__main__':
     TIME_s = time.time()
-    check_pass_rate()
-    # filter()
+    # check_pass_rate()
+    filter()
     print 'Time cost: {} s'.format(time.time()-TIME_s)
     
 
