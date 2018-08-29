@@ -6,6 +6,7 @@ import glob
 import json
 import time
 import random
+import traceback
 import numpy as np
 
 from Bio import pairwise2
@@ -14,7 +15,8 @@ from data_gain import initialize_rpc, recognize_single, data_convert_image
 PUNCT = [',', '.', '?', ':', '!', ';']
 DATA_FILE = [
     'updated_sample.json',
-    'updated_overall.json'
+    'updated_overall.json',
+    'residual_data.json'
 ]
 
 LIST_ALIAS = [
@@ -96,17 +98,17 @@ def filter_condition(blank_data):
     #     pass
     # if blank_data['isLong'] == True:
     #     res = True
-    if reference.isdigit() or ref_size==1:
-        pass
+    # if reference.isdigit() or ref_size==1:
+    #     pass
 
-    elif raw_text == '' and ref_size>1:
-        b = [len(ans) for ans in reference.split('@@') if len(ans)<2]
-        info = blank_img_check(blank_data['url'])
-        is_blank = info[0]
-        if b == [] and is_blank:
-            blank_data['raw_black_cnt'] = info[1]
-            blank_data['raw_black_ratio'] = info[2]
-            res = True
+    # elif raw_text == '' and ref_size>1:
+    #     b = [len(ans) for ans in reference.split('@@') if len(ans)<2]
+    #     info = blank_img_check(blank_data['url'])
+    #     is_blank = info[0]
+    #     if b == [] and is_blank:
+    #         blank_data['raw_black_cnt'] = info[1]
+    #         blank_data['raw_black_ratio'] = info[2]
+    #         res = True
 
     # if raw_text == '|' and text == '':
     #     res = True
@@ -146,7 +148,7 @@ def filter_condition(blank_data):
 
 def filter():
     ''' filter data with certain conditions '''
-    fname = DATA_FILE[0]
+    fname = DATA_FILE[1]
     dataset = json.load(open('./dataset/{}'.format(fname)))
     res = []
     for item in dataset:
@@ -198,6 +200,23 @@ def blank_img_check(url):
     return FLAG_BLANK, black_pixel_cnt, black_pixel_ratio
 
 
+def recogize():
+    ''' get new recognization results from OCR model '''
+    en_predictor = initialize_rpc()
+    dataset = json.load(open('./dataset/residual_data.json'))
+    for item in dataset:
+        fname = item['local_addr']
+        try:
+            result = recognize_single(en_predictor, fname)
+            item['raw_text_1'] = result['raw_text']
+            item['text_1'] = result['text']
+            item['prob_1'] = result['prob']
+            print 'Processing:', fname
+        except:
+            print traceback.format_exc()
+    json.dump(dataset, open('./dataset/residual123_data.json', 'w'))
+        
+
 def discriminator(blank_data):
     '''
     Rules to judge if the blank data should pass ai filter automatically thus no need for human re-check.
@@ -225,6 +244,8 @@ def discriminator(blank_data):
 
     ref_size    = len(reference)
     ans_size    = len(text)
+    ref_word_size   = len(reference.split(' '))
+    ans_word_size   = len(text.split(' '))
 
     # 针对多个答案的填空题
     LIST_ANS    = reference.split('@@')
@@ -251,8 +272,8 @@ def discriminator(blank_data):
         FLAG_CORRECT = True
         FLAG_CONFIDENT = True
 
-    # 2. 答案为单个字符以及数字的情况，单独处理
-    elif FLAG_DIGIT or FLAG_SHORT:
+    # 2. 答案为单个字符,数字或者长句子的情况，单独处理
+    elif FLAG_DIGIT or FLAG_SHORT or ref_word_size > 3:
         pass
 
     # 3. 识别结果为空，且答案长度大于1（模型对一两个字符的答案以及数字的识别效果不佳，易出现空白结果）
@@ -301,11 +322,15 @@ def discriminator(blank_data):
         FLAG_CORRECT = True
         FLAG_CONFIDENT = True
         
+    # 9. 若此时答案单词数依然大于3，有可能为长句子题型，需要人工检查
+    elif ans_word_size > 3:
+        pass
 
-    # 9. 编辑距离大于2，且平均置信度高于0.9，判为错误
+    # 10. 编辑距离大于2，且平均置信度高于0.9，判为错误
     elif min_distance(pure_text, pure_ref)>2 and '|' not in raw_text and prob_avg>0.9:
-        FLAG_CORRECT = False
-        FLAG_CONFIDENT = True
+        if pure_text not in pure_ref and pure_ref not in pure_text:
+            FLAG_CORRECT = False
+            FLAG_CONFIDENT = True
 
     # DEV
     # elif score!=0:
@@ -316,8 +341,9 @@ def discriminator(blank_data):
 
 if __name__=='__main__':
     TIME_s = time.time()
-    # check_pass_rate()
-    filter()
+    check_pass_rate()
+    # filter()
+    # recogize()
     print 'Time cost: {} s'.format(time.time()-TIME_s)
     
 
