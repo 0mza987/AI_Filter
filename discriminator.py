@@ -336,7 +336,12 @@ def discriminator(blank_data):
     # elif score!=0:
     #     FLAG_test = True
 
-    return FLAG_CORRECT, FLAG_CONFIDENT, FLAG_test
+    result = {
+        'correct': FLAG_CORRECT,
+        'confident': FLAG_CONFIDENT,
+        'test': FLAG_test
+    }
+    return result
 
 
 if __name__=='__main__':
