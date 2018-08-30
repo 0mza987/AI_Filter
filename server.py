@@ -18,7 +18,7 @@ class AIFilter(object):
         logger.info('================== Initializing AI Filter ==================')
 
     def discriminate(self, blank_data):
-        """  """
+        """ discriminate blank data through AI Filter """
         start_time = time.time()
         res = {
             'data': None,
@@ -37,7 +37,7 @@ class AIFilter(object):
             res['msg'] = 'error'
             logger.error(str(e))
             logger.error(traceback.format_exc())
-        
+        logger.info('Time cost: {} ms'.format((time.time()-start_time)*1000))
         return res
             
 if __name__ == '__main__':
