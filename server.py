@@ -32,7 +32,7 @@ class AIFilter(object):
             res['code'] = 0
             res['msg'] = 'ok'
 
-        except Exception, e:
+        except Exception as e:
             res['code'] = 103
             res['msg'] = 'error'
             logger.error(str(e))

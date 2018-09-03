@@ -6,13 +6,18 @@ import glob
 import json
 import time
 import random
-import requests
 import traceback
 import numpy as np
 
 from Bio import pairwise2
+from data_gain import initialize_rpc, recognize_single, data_convert_image
 
 PUNCT = [',', '.', '?', ':', '!', ';']
+DATA_FILE = [
+    'updated_sample.json',
+    'updated_overall.json',
+    'residual_data.json'
+]
 
 LIST_ALIAS = [
     sorted(['v','r']),
@@ -23,26 +28,6 @@ def ans_equals_ref(ans, ref):
     ''' Incase reference has multiple answers '''
     LIST_ref = ref.split('@@')
     return True if ans in LIST_ref else False
-
-
-def data_convert_image(data):
-    """ 
-    standard image read and load online version
-    """
-    if isinstance(data, basestring):
-        if data.startswith(('http:', 'https:')):
-            resp = requests.get(data).content
-            image = np.asarray(bytearray(resp), dtype=np.uint8)
-            image = cv2.imdecode(image, cv2.IMREAD_GRAYSCALE)
-        elif data.endswith(('.jpg', '.png')):
-            data = data.replace('\\', '/')
-            image = cv2.imread(data, cv2.IMREAD_GRAYSCALE)
-        else:
-            image = np.asarray(bytearray(data), dtype=np.uint8)
-            image = cv2.imdecode(image, cv2.IMREAD_GRAYSCALE)
-    else:
-        image = data
-    return image
 
 
 def locate_prob(raw_text, text, prob):
@@ -70,6 +55,118 @@ def locate_prob(raw_text, text, prob):
     return text_prob
 
 
+def check_pass_rate(fname=''):
+    ''' return pass rate of the data file '''
+    fname = DATA_FILE[0]
+    fname = DATA_FILE[1]
+    # fname = 'blank_data_sample.json'
+    # fname = 'blank_data_overall.json'
+    dataset = json.load(open('./dataset/{}'.format(fname)))
+    pass_cnt_original = 0
+    pass_cnt_new = 0
+    for item in dataset:
+        # if item['marked'] == False:
+        if discriminator(item)['confident'] == True:
+        # if filter_condition(item):
+            pass_cnt_original += 1
+        # elif filter_condition(item):
+
+    print fname, len(dataset)
+    print 'New rate: {}. Old rate: {}'.format(pass_cnt_new*1.0/len(dataset), pass_cnt_original*1.0/len(dataset))
+
+
+def filter_condition(blank_data):
+    ''' specific conditions to select blank data '''
+    res = False
+
+    raw_text    = blank_data['raw_text'].lower()        # 原始识别结果，包含删除符号，标点符号
+    text        = blank_data['detectResult'].lower()    # 干净识别结果，只有字符与空格
+    reference   = blank_data['reference'].lower()       # 标准答案
+    prob        = blank_data['prob']                    # 对应原始识别结果的概率list
+    prob_avg    = blank_data['prob_val']                # 概率list的平均值
+    human_text  = blank_data['manuallyResult'].lower()  # 运营人员标注结果
+    score       = blank_data['score']                   # 该题的得分值
+
+    ref_size    = len(reference)
+    ans_size    = len(text)
+    # clean_prob  = locate_prob(raw_text, text, prob)
+
+    # if ans_equals_ref(text, reference) and prob_avg >= 0.5:
+    #     res =False
+        
+    # elif '@@' in reference:
+    #     pass
+    # if blank_data['isLong'] == True:
+    #     res = True
+    # if reference.isdigit() or ref_size==1:
+    #     pass
+
+    # elif raw_text == '' and ref_size>1:
+    #     b = [len(ans) for ans in reference.split('@@') if len(ans)<2]
+    #     info = blank_img_check(blank_data['url'])
+    #     is_blank = info[0]
+    #     if b == [] and is_blank:
+    #         blank_data['raw_black_cnt'] = info[1]
+    #         blank_data['raw_black_ratio'] = info[2]
+    #         res = True
+
+    # if raw_text == '|' and text == '':
+    #     res = True
+
+
+    # if min_distance(text, reference)==1 and ref_size>2 and ans_size==ref_size:
+    #     for i in xrange(ref_size):
+    #         if reference[i] != text[i]: 
+    #             char_pair = sorted([reference[i], text[i]])
+    #             if char_pair in LIST_ALIAS:
+    #                 clean_prob = locate_prob(raw_text, text, prob)
+    #                 # 注意这里可能返回空集合
+    #                 if clean_prob != [] and clean_prob[i] > 0.9:
+    #                     res = True
+
+
+    # f = discriminator(blank_data)
+    # if f[1]==True:
+    #     if f[0]==True and score==0:
+    #         res = True
+    #     elif f[0]==False and score!=0:
+    #         res=True
+    # if ''.join(text.split(' ')) == ''.join(reference.split(' ')) and score==0:
+    #     res = True
+
+    # if not reference.isdigit() and ref_size > 1 and '@@' not in reference:
+    #     if min_distance(text, reference)>2 and ref_size>2 and score!=0:
+    #         res = True
+        # if text!=reference and score!=0:
+        #     res = True
+    
+
+    # if reference=='':
+    #     res =True
+    return res 
+
+
+def filter():
+    ''' filter data with certain conditions '''
+    fname = DATA_FILE[1]
+    dataset = json.load(open('./dataset/{}'.format(fname)))
+    res = []
+    for item in dataset:
+        # if discriminator(item)[1]==False and filter_condition(item):
+        # if filter_condition(item):
+        #     res.append(item)
+        if discriminator(item)['test'] == True:
+            res.append(item)
+        # r = discriminator(item)
+        # if r[1]==True:
+        #     if r[0]==False and item['score']!=0 and item['raw_text']!='' and item['manuallyResult']==item['reference'] :
+        #         res.append(item)
+            # if r[0]==True and item['score']==0:
+            #     res.append(item)
+    print '{} out of {} items are left. Ratio: {}'.format(len(res), len(dataset), len(res)*1.0/len(dataset))
+    json.dump(res, open('./dataset/residual_data.json', 'w'))
+
+
 def min_distance(s1, s2):
     ''' calculate min edit distance of two words '''
     n = len(s1)
@@ -86,10 +183,14 @@ def min_distance(s1, s2):
             matrix[i][j] = min(temp, matrix[i-1][j-1]+d)
     return matrix[n][m]
 
+img_cnt = 0
 
 def blank_img_check(url):
     ''' check if the image is blank '''
     img = data_convert_image(url)
+    global img_cnt 
+    img_cnt += 1
+    print img_cnt
     h, w = img.shape
     img = 255 - img[:, int(w*0.2):int(w*0.9)]
     img = cv2.threshold(img, 128, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
@@ -99,6 +200,21 @@ def blank_img_check(url):
     return FLAG_BLANK, black_pixel_cnt, black_pixel_ratio
 
 
+def recognize():
+    ''' get new recognization results from OCR model '''
+    en_predictor = initialize_rpc()
+    dataset = json.load(open('./dataset/residual_data.json'))
+    for item in dataset:
+        fname = item['local_addr']
+        try:
+            result = recognize_single(en_predictor, fname)
+            item['raw_text_1'] = result['raw_text']
+            item['text_1'] = result['text']
+            item['prob_1'] = result['prob']
+            print 'Processing:', fname
+        except:
+            print traceback.format_exc()
+    json.dump(dataset, open('./dataset/residual123_data.json', 'w'))
         
 
 class Blank(object):
@@ -112,7 +228,6 @@ class Blank(object):
         self.prob        = blank_data['prob']                       # 对应原始识别结果的概率list
         self.prob_avg    = blank_data['prob_val']                   # 概率list的平均值
         self.url         = blank_data['url']                        # 填空题图片地址
-
         # self.human_text  = blank_data['manuallyResult'].lower()     # 运营人员标注结果
         # self.score       = blank_data['score']                      # 该题的得分值
         
@@ -154,8 +269,10 @@ def discriminator(blank_data):
     # =============================================
     FLAG_CORRECT    = False
     FLAG_CONFIDENT  = False
+    FLAG_test = False
     
     blank_inst = Blank(blank_data)
+
 
     # =============================================
     # 分步骤处理
@@ -174,7 +291,8 @@ def discriminator(blank_data):
 
     # 3. 识别结果为空，且答案长度大于1（模型对一两个字符的答案以及数字的识别效果不佳，易出现空白结果）
     elif blank_inst.raw_text == '' and blank_inst.ref_size>1:
-        is_blank = blank_img_check(blank_inst.url)[0]
+        # is_blank = blank_img_check(url)[0]
+        is_blank = True
         if is_blank:
             FLAG_CORRECT = False
             FLAG_CONFIDENT = True
@@ -244,34 +362,9 @@ def discriminator(blank_data):
     result = {
         'correct': FLAG_CORRECT,
         'confident': FLAG_CONFIDENT,
-        'step': blank_inst.step
+        'step': blank_inst.step,
+        'test': FLAG_test
     }
-    return result
-
-
-def discriminator_old(blank_data):
-    ''' old discriminator version, for emergency rollback '''
-    # =============================================
-    # 初始化数据
-    # =============================================
-    FLAG_CORRECT    = False
-    FLAG_CONFIDENT  = False
-    
-    blank_inst = Blank(blank_data)
-
-    # =============================================
-    # 处理数据
-    # =============================================
-    if blank_inst.text == blank_inst.reference and blank_inst.prob_avg > 0.9:
-        FLAG_CORRECT = True
-        FLAG_CONFIDENT = True
-
-    result = {
-        'correct': FLAG_CORRECT,
-        'confident': FLAG_CONFIDENT,
-        'step': '0.5'
-    }
-
     return result
 
 

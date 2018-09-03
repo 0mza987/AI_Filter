@@ -9,7 +9,7 @@ def client_test():
 
     cnt = 0
     right_cnt = 0
-    for idx, item in enumerate(dataset[0:20]):
+    for idx, item in enumerate(dataset[0:2000]):
         print 'Processing {}/{}'.format(idx+1, len(dataset))
         result = blank_client.discriminate(item)['data']
         is_right = False
