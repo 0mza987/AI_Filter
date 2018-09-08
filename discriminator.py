@@ -170,7 +170,6 @@ def discriminator(blank_data):
     # 2. 答案为单个字符,数字或者长句子的情况，单独处理
     elif blank_inst.FLAG_DIGIT or blank_inst.FLAG_SHORT or blank_inst.ref_word_size > 3:
         blank_inst.step = '2'
-        pass
 
     # 3. 识别结果为空，且答案长度大于1（模型对一两个字符的答案以及数字的识别效果不佳，易出现空白结果）
     elif blank_inst.raw_text == '' and blank_inst.ref_size>1:
@@ -189,7 +188,6 @@ def discriminator(blank_data):
     # 5. 多选题单独处理
     elif '@@' in blank_inst.reference:
         blank_inst.step = '5'
-        pass
     
     # 6. 识别结果后半部分包含标准答案时。很大可能是学生作答正确但识别多识别出了字符的情况，例如：
     #    {reference = 'ffice', text = 'o ffice'}, 模型将填空题首字母印刷体o也识别出来了
@@ -229,7 +227,6 @@ def discriminator(blank_data):
     # 9. 若此时答案单词数依然大于3，有可能为长句子题型，需要人工检查
     elif blank_inst.ans_word_size > 3:
         blank_inst.step = '9'
-        pass
 
     # 10. 编辑距离大于2，且平均置信度高于0.9，判为错误
     elif (min_distance(blank_inst.pure_text, blank_inst.pure_ref) > 2 and 
@@ -262,7 +259,7 @@ def discriminator_old(blank_data):
     # =============================================
     # 处理数据
     # =============================================
-    if blank_inst.text == blank_inst.reference and blank_inst.prob_avg > 0.9:
+    if ans_equals_ref(blank_inst.text, blank_inst.reference) and blank_inst.prob_avg > 0.9:
         FLAG_CORRECT = True
         FLAG_CONFIDENT = True
 
