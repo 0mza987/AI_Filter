@@ -33,7 +33,7 @@ def ans_equals_ref(ans, ref):
 def locate_prob(raw_text, text, prob):
     '''Align two text to get proper probabilities.
 
-    Example: locate_prob('| faith.','faith',[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8])
+    Example: locate_prob('| faith.','fath', prob)
         
         raw_text = '| faith.'   text = 'fath'
 

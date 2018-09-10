@@ -20,7 +20,7 @@ LIST_ALIAS = [
 ]
 
 def ans_equals_ref(ans, ref):
-    ''' Incase reference has multiple answers '''
+    """ Incase reference has multiple answers """
     LIST_ref = ref.split('@@')
     return True if ans in LIST_ref else False
 
@@ -46,9 +46,9 @@ def data_convert_image(data):
 
 
 def locate_prob(raw_text, text, prob):
-    '''Align two text to get proper probabilities.
+    """Align two text to get proper probabilities.
 
-    Example: locate_prob('| faith.','faith',[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8])
+    Example: locate_prob('| faith.','fath', prob)
         
         raw_text = '| faith.'   text = 'fath'
 
@@ -58,7 +58,7 @@ def locate_prob(raw_text, text, prob):
         text_prob:     [0.3,0.4,    0.6,0.7]           
     
     Note:   text must be a subsequence of raw_text
-    '''    
+    """    
 
     if raw_text=='' or text=='': return []
     if len(prob) != len(raw_text): return []
@@ -71,7 +71,7 @@ def locate_prob(raw_text, text, prob):
 
 
 def min_distance(s1, s2):
-    ''' calculate min edit distance of two words '''
+    """ calculate min edit distance of two words """
     n = len(s1)
     m = len(s2)
     matrix = [([0]*(m+1)) for i in xrange(n+1)]
@@ -88,7 +88,7 @@ def min_distance(s1, s2):
 
 
 def blank_img_check(url):
-    ''' check if the image is blank '''
+    """ check if the image is blank """
     img = data_convert_image(url)
     h, w = img.shape
     img = 255 - img[:, int(w*0.2):int(w*0.9)]
@@ -141,13 +141,13 @@ class Blank(object):
 
 
 def discriminator(blank_data):
-    '''
+    """
     Rules to judge if the blank data should pass ai filter automatically thus no need for human re-check.
     Input: blank_data dict
     Output: 1. FLAG_CORRECT: true if student's answer is right, vice versa.
             2. FLAG_CONFIDENT: true if no need for human re-check, vice versa.      
             3. step: help to locate which step the blank data went through  
-    '''
+    """
 
     # =============================================
     # 初始化数据
@@ -247,7 +247,7 @@ def discriminator(blank_data):
 
 
 def discriminator_old(blank_data):
-    ''' old discriminator version, for emergency rollback '''
+    """ old discriminator version, for emergency rollback """
     # =============================================
     # 初始化数据
     # =============================================

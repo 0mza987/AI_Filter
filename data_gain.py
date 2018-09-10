@@ -56,7 +56,7 @@ def data_convert_image(data):
 
 
 def ans_equals_ref(ans, ref):
-    ''' Incase reference has multiple answers '''
+     """Incase reference has multiple answers """
     LIST_ref = ref.split('@@')
     return True if ans in LIST_ref else False
 
@@ -78,7 +78,7 @@ def recognize_single(c_en_predict, fname):
 
 
 def recognition_all():
-    ''' Re-recognize all images and update results '''
+    """ Re-recognize all images and update results """
     # RPC client
     c_en_predict = initialize_rpc()
 
@@ -111,7 +111,7 @@ def recognition_all():
 
 
 def get_data_by_exam(eid):
-    '''get data from data center'''
+    """ get data from data center """
     URL = 'http://dcs.hexin.im/api/blank/getList'
     page = 1
     params = {
@@ -135,7 +135,7 @@ def get_data_by_exam(eid):
 
 
 def get_image_from_115(url):
-    '''get image from 115 and crop region of interest'''
+    """ get image from 115 and crop region of interest """
     x, y, w, h = map(int, re.findall(r'x_(\d+),y_(\d+),w_(\d+),h_(\d+)', url)[0])
     exam_id = url.split('/')[-4]
     pic_name = url.split('/')[-3].split('?')[0]
@@ -148,7 +148,7 @@ def get_image_from_115(url):
 
 
 def get_and_save_blank_image(blank_data):
-    '''download blank image to local and return local address'''
+    """ download blank image to local and return local address """
     fname = '{}_{}.png'.format(blank_data['originUid'], blank_data['_id'])
     exam_id = blank_data['url'].split('/')[-4]
     fpath = os.path.join(IMAGE_PATH, exam_id)
@@ -161,10 +161,10 @@ def get_and_save_blank_image(blank_data):
 
 
 def get_blank_from_dc():
-    ''' 
+    """ 
     pull data from data center, save data by exam id and overall data as well
     select a portion of overall data as sample data.
-    '''
+    """
     overall_data = []
     LIST_failed = []
     LIST_eid = json.load(open('./dataset/list_eid.json'))
