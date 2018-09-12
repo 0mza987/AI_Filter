@@ -42,11 +42,12 @@ class AIFilter(object):
             
 if __name__ == '__main__':
     
-    from RPC_list import RPC_menu
+    # from RPC_list import RPC_menu
     
     server_name = 'ai_filter_RPC'
     server = zerorpc.Server(AIFilter())
-    server.bind('tcp://{}'.format(RPC_menu[server_name]))
-    logger.info('Server bind successful -> {}: {}'.format(server_name, RPC_menu[server_name]))
+    local_addr = '192.168.1.57:21000'
+    server.bind('tcp://{}'.format(local_addr))
+    logger.info('Server bind successful -> {}: {}'.format(server_name, local_addr))
     server.run()
     
