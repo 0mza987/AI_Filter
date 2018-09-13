@@ -4,7 +4,7 @@
 # Date:   2018-08-15 15:23:49
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-12 17:14:24
+# Last Modified At: 2018-09-12 17:35:18
 #======================================
 
 import os
@@ -263,13 +263,17 @@ class Blank(object):
 
 
 def discriminator(blank_data):
-    '''
+    """
     Rules to judge if the blank data should pass ai filter automatically thus no need for human re-check.
-    Input: blank_data dict
-    Output: 1. FLAG_CORRECT: true if student's answer is right, vice versa.
-            2. FLAG_CONFIDENT: true if no need for human re-check, vice versa.      
-            3. step: help to locate which step the blank data went through  
-    '''
+
+    Arguments:
+        blank_data {dict} -- a dictionary including blank data info
+    
+    Returns:
+        FLAG_CORRECT {bool} -- true if student's answer is right, vice versa.
+        FLAG_CONFIDENT {bool} -- true if no need for human re-check, vice versa.      
+        step {str} -- help to locate which step the blank data went through  
+    """
 
     # =============================================
     # 初始化数据

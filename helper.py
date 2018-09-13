@@ -4,7 +4,7 @@
 # Date:   2018-09-12 16:51:26
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-13 15:35:37
+# Last Modified At: 2018-09-13 17:01:50
 #======================================
 
 import os
@@ -26,9 +26,7 @@ def ans_equals_ref(ans, ref):
 
 
 def data_convert_image(data):
-    """ 
-    standard image read and load online version
-    """
+    """ standard image read and load online version """
     if isinstance(data, basestring):
         if data.startswith(('http:', 'https:')):
             resp = requests.get(data).content
@@ -46,10 +44,11 @@ def data_convert_image(data):
 
 
 def locate_prob(raw_text, text, prob):
-    """Align two text to get proper probabilities.
+    """
+    Align two text to get proper probabilities.
 
     Example: locate_prob('| faith.','fath', prob)
-        
+
         raw_text = '| faith.'   text = 'fath'
 
         prob:  [0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]   
@@ -57,8 +56,17 @@ def locate_prob(raw_text, text, prob):
         align2:  -   -   f   a   -   t   h   -
         text_prob:     [0.3,0.4,    0.6,0.7]           
     
-    Note:   text must be a subsequence of raw_text
-    """    
+    Note: 
+        text must be a subsequence of raw_text
+    
+    Arguments:
+        raw_text {str} -- raw text of ocr results
+        text {str} -- clean text of ocr results
+        prob {list} -- [description]
+    
+    Returns:
+        text_prob {list} -- a sub-list of original raw text prob list
+    """
 
     if raw_text=='' or text=='': return []
     if len(prob) != len(raw_text): return []

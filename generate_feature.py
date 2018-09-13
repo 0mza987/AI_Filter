@@ -4,7 +4,7 @@
 # Date:   2018-09-13 10:13:09
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-13 15:59:26
+# Last Modified At: 2018-09-13 16:11:40
 #======================================
 
 import os
@@ -42,7 +42,7 @@ def get_prob_info(blank_inst):
         blank_inst {object} -- an instance of class Blank
 
     Returns:
-        prob_info -- a list of features
+        prob_info {list} -- a list of features
     """
     prob = H.locate_prob(blank_inst.raw_text, blank_inst.text, blank_inst.prob)
     prob = np.array(prob)

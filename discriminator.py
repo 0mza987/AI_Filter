@@ -4,7 +4,7 @@
 # Date:   2018-09-10 17:08:11
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-13 15:33:12
+# Last Modified At: 2018-09-13 16:54:29
 #======================================
 
 import os
@@ -27,11 +27,16 @@ LIST_ALIAS = [
 
 def discriminator(blank_data):
     """
-    Rules to judge if the blank data should pass ai filter automatically thus no need for human re-check.
-    Input: blank_data dict
-    Output: 1. FLAG_CORRECT: true if student's answer is right, vice versa.
-            2. FLAG_CONFIDENT: true if no need for human re-check, vice versa.      
-            3. step: help to locate which step the blank data went through  
+    Rules to judge if the blank data should pass ai filter automatically
+    thus no need for human re-check.
+
+    Arguments:
+        blank_data {dict} -- a dictionary including blank data info
+    
+    Returns:
+        FLAG_CORRECT {bool} -- true if student's answer is right, vice versa
+        FLAG_CONFIDENT {bool} -- true if no need for human re-check, vice versa
+        step {str} -- help to locate which step the blank data went through  
     """
 
     # =============================================
@@ -135,7 +140,17 @@ def discriminator(blank_data):
 
 
 def discriminator_old(blank_data):
-    """ old discriminator version, for emergency rollback """
+    """
+    Old discriminator version, for emergency rollback
+    
+    Arguments:
+        blank_data {dict} -- a dictionary including blank data info
+    
+    Returns:
+        FLAG_CORRECT {bool} -- true if student's answer is right, vice versa
+        FLAG_CONFIDENT {bool} -- true if no need for human re-check, vice versa
+        step {str} -- help to locate which step the blank data went through  
+    """
     # =============================================
     # 初始化数据
     # =============================================
