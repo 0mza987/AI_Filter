@@ -4,7 +4,7 @@
 # Date:   2018-09-12 16:51:26
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-13 17:01:50
+# Last Modified At: 2018-09-13 17:02:32
 #======================================
 
 import os
@@ -134,6 +134,7 @@ class Blank(object):
         self.ref_size       = len(self.reference)
         self.ans_size       = len(self.text)
         self.raw_size       = len(self.raw_text)
+        self.text_size      = len(self.text)
         self.ref_word_size  = len(self.reference.split(' '))
         self.ans_word_size  = len(self.text.split(' '))
 

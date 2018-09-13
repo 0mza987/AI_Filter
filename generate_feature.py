@@ -4,11 +4,14 @@
 # Date:   2018-09-13 10:13:09
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-13 16:11:40
+# Last Modified At: 2018-09-13 20:48:50
 #======================================
 
 import os
+import json
+import random
 import numpy as np
+import pandas as pd
 import helper as H
 
 
@@ -26,7 +29,7 @@ def get_basic_info(blank_inst):
         blank_inst.prob_avg,
         blank_inst.text_size,
         blank_inst.ref_size,
-        blank_inst.text_word_size,
+        blank_inst.ans_word_size,
         blank_inst.ref_word_size,
         int(blank_inst.FLAG_SHORT),
         int(blank_inst.FLAG_DIGIT)
@@ -99,10 +102,10 @@ def get_other_info(blank_inst):
         int(blank_inst.pure_text in blank_inst.pure_ref),
         int(blank_inst.prob_avg>0.5)
     ]
-    return other_info, len(other_info)
+    return other_info
 
 
-def feature_generator(blank_inst):
+def generate_feature(blank_inst):
     """
     Generate multiple features from blank_inst:
         basic:
@@ -149,8 +152,37 @@ def feature_generator(blank_inst):
     return features
 
 
+def generate_csv():
+    """
+    Generate csv feature data
+    """
+    fname = './dataset/updated_overall.json'
+    dataset = json.load(open(fname))
+    col_names = [
+        'correct', 'prob_avg', 'text_size', 'ref_size', 'text_word_size',
+        'ref_word_size', 'flag_short', 'flag_digit', 
+        'prob_0', 'prob_1', 'prob_2', 'prob_3', 'prob_4', 'prob_5', 'prob_6',
+        'edit_distance', 'pure_edit_distance', 'nb_dele', 'nb_strip', 'flag_equal',
+        'feature_0', 'feature_1', 'feature_2', 'feature_3',
+        'feature_4', 'feature_5', 'feature_6', 'feature_7'
+    ]
+    data_rows = []
+    for idx, blank_data in enumerate(dataset):
+        if (idx%1000)==0:
+            print 'Processing index: {}/{}'.format(idx, len(dataset))
+        blank_inst = H.Blank(blank_data)
+        correct = 0 if blank_data['score'] == 0 else 1
+        data_rows.append([correct]+generate_feature(blank_inst))
+    random.shuffle(data_rows)
+    data_size = len(data_rows)
+    df_train = pd.DataFrame(data_rows[0:int(data_size*0.8)], columns=col_names)
+    df_valid = pd.DataFrame(data_rows[int(data_size*0.8):], columns=col_names)
+    df_train.to_csv('./dataset/csv_data/blank_train.csv', index=False)
+    df_valid.to_csv('./dataset/csv_data/blank_valid.csv', index=False)
+    
 
-
+if __name__ == '__main__':
+    generate_csv()
 
 
 
