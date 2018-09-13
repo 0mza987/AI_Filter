@@ -4,7 +4,7 @@
 # Date:   2018-09-10 17:08:11
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-12 17:31:38
+# Last Modified At: 2018-09-13 15:33:12
 #======================================
 
 import os
@@ -84,14 +84,17 @@ def discriminator(blank_data):
                      'being','is','was','are','been','im','more','less','un']
         # 部分易混淆的特殊情况，可单独添加. {reference: 'other', text: 'another'}
         key_words = ['another', 'international']
-        if blank_inst.text[0:-blank_inst.ref_size].strip().lower() not in watch_out and blank_inst.text not in key_words:
+        if (blank_inst.text[0:-blank_inst.ref_size].strip().lower() not in watch_out and 
+            blank_inst.text not in key_words):
             FLAG_CORRECT = True
             FLAG_CONFIDENT = True
             blank_inst.step = '6'
 
     # 7. 对于易混淆字符的处理。若学生作答与正确答案只差一个字符，该字符属于易错字符且识别概率低于0.9，判为正确答案
     #   {reference: 'move', text: 'more'}
-    elif blank_inst.ref_size > 2 and blank_inst.ans_size == blank_inst.ref_size and H.min_distance(blank_inst.text, blank_inst.reference)==1:
+    elif (blank_inst.ref_size>2 and 
+          blank_inst.ans_size==blank_inst.ref_size and 
+          H.min_distance(blank_inst.text, blank_inst.reference)==1):
         for i in xrange(blank_inst.ref_size):
             if blank_inst.reference[i] != blank_inst.text[i]: 
                 char_pair = sorted([blank_inst.reference[i], blank_inst.text[i]])

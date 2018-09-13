@@ -4,7 +4,7 @@
 # Date:   2018-09-12 16:51:26
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-12 17:37:35
+# Last Modified At: 2018-09-13 15:35:37
 #======================================
 
 import os
@@ -125,6 +125,7 @@ class Blank(object):
         
         self.ref_size       = len(self.reference)
         self.ans_size       = len(self.text)
+        self.raw_size       = len(self.raw_text)
         self.ref_word_size  = len(self.reference.split(' '))
         self.ans_word_size  = len(self.text.split(' '))
 
@@ -135,6 +136,7 @@ class Blank(object):
 
         self.FLAG_SHORT  = True if LIST_SIZE!=[] else False
         self.FLAG_DIGIT  = True if LIST_NB!=[] else False
+        self.FLAG_MULTI  = True if '@@' in self.reference else False
 
         # generate pure text and reference
         LIST_toclean = [' ', '.', '-', '?', '!', ',', ':']
