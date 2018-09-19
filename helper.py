@@ -4,7 +4,7 @@
 # Date:   2018-09-12 16:51:26
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-13 17:02:32
+# Last Modified At: 2018-09-19 15:23:17
 #======================================
 
 import os
@@ -113,23 +113,26 @@ class Blank(object):
     Abstract a blank data structure to a class
     """
 
-    def __init__(self, blank_data):
+    def __init__(self, blank_data, valid=False):
         """
         Initialize a blank data object through a blank data dictionary
         
         Arguments:
             blank_data {dict} -- blank data dictionary
+            valid {bool} -- data has already been scored
         """
-        self.step        = '0'
-        self.raw_text    = blank_data['raw_text'].lower()           # 原始识别结果，包含删除符号，标点符号
-        self.text        = blank_data['detectResult'].lower()       # 干净识别结果，只有字符与空格
-        self.reference   = blank_data['reference'].lower()          # 标准答案
-        self.prob        = blank_data['prob']                       # 对应原始识别结果的概率list
-        self.prob_avg    = blank_data['prob_val']                   # 概率list的平均值
-        self.url         = blank_data['url']                        # 填空题图片地址
+        self.step       = '0'
+        self.raw_text   = blank_data['raw_text'].lower()        # 原始识别结果，包含删除符号，标点符号
+        self.text       = blank_data['detectResult'].lower()    # 干净识别结果，只有字符与空格
+        self.reference  = blank_data['reference'].lower()       # 标准答案
+        self.prob       = blank_data['prob']                    # 对应原始识别结果的概率list
+        self.prob_avg   = blank_data['prob_val']                # 概率list的平均值
+        self.url        = blank_data['url']                     # 填空题图片地址   
 
-        # self.human_text  = blank_data['manuallyResult'].lower()     # 运营人员标注结果
-        # self.score       = blank_data['score']                      # 该题的得分值
+        if valid:
+            self.marked     = blank_data['marked']                     # 是否被人工check过    
+            self.human_text = blank_data['manuallyResult'].lower()     # 运营人员标注结果
+            self.score      = blank_data['score']                      # 该题的得分值
         
         self.ref_size       = len(self.reference)
         self.ans_size       = len(self.text)

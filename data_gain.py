@@ -4,7 +4,7 @@
 # Date:   2018-08-13 10:41:06
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-12 17:15:08
+# Last Modified At: 2018-09-19 15:35:35
 #======================================
 
 import os
@@ -64,7 +64,7 @@ def data_convert_image(data):
 
 
 def ans_equals_ref(ans, ref):
-     """Incase reference has multiple answers """
+    """ Incase reference has multiple answers """
     LIST_ref = ref.split('@@')
     return True if ans in LIST_ref else False
 

@@ -4,7 +4,7 @@
 # Date:   2018-09-10 17:08:11
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-13 16:59:42
+# Last Modified At: 2018-09-14 17:17:14
 #======================================
 
 import os
@@ -104,7 +104,7 @@ def discriminator(blank_data):
             if blank_inst.reference[i] != blank_inst.text[i]: 
                 char_pair = sorted([blank_inst.reference[i], blank_inst.text[i]])
                 if char_pair in LIST_ALIAS:
-                    clean_prob = locate_prob(blank_inst.raw_text, blank_inst.text, blank_inst.prob)
+                    clean_prob = H.locate_prob(blank_inst.raw_text, blank_inst.text, blank_inst.prob)
                     # 注意这里可能返回空集合
                     if clean_prob != [] and clean_prob[i] <= 0.9:
                         FLAG_CORRECT = True
