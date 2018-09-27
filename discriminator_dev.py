@@ -4,7 +4,7 @@
 # Date:   2018-08-15 15:23:49
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-19 17:52:11
+# Last Modified At: 2018-09-27 11:18:48
 #======================================
 
 import os
@@ -127,7 +127,7 @@ def filter():
     res = []
     for item in dataset:
         ans = discriminator(item)
-        if ans['test'] == True and ans['correct'] == True and item['score']==0:
+        if ans['test'] == True and ans['correct'] == True:
             res.append(item)
     print '{} out of {} items are left. Ratio: {}'.format(len(res), len(dataset), len(res)*1.0/len(dataset))
     json.dump(res, open('./dataset/residual_data.json', 'w'))
@@ -184,29 +184,36 @@ def discriminator(blank_data):
         blank_inst.step = '1'
 
     # 2. 答案为单个字符,数字或者长句子的情况，单独处理
-    elif blank_inst.FLAG_DIGIT or blank_inst.FLAG_SHORT or blank_inst.ref_word_size > 3:
+    elif blank_inst.FLAG_DIGIT or blank_inst.FLAG_SHORT:
         blank_inst.step = '2'
 
-    # 3. 识别结果为空，且答案长度大于1（模型对一两个字符的答案以及数字的识别效果不佳，易出现空白结果）
-    elif blank_inst.raw_text == '' and blank_inst.ref_size>1:
-        # is_blank = H.blank_img_check(blank_inst.url)[0]
-        is_blank = True
-        if is_blank:
+    # 3. 答案为长句子/词组的情况，单独处理
+    elif blank_inst.ref_word_size > 3:
+        # 如果识别结果为空，判为错误
+        if blank_inst.raw_text == '' or blank_inst.text == '':
             FLAG_CORRECT = False
             FLAG_CONFIDENT = True
             blank_inst.step = '3'
 
-    # 4. 原始识别结果为一个删除符号，最终结果为空，易出现情况：学生修改后的结果未被识别出。需要运营检查
+    # 4. 识别结果为空，且答案长度大于1（模型对一两个字符的答案以及数字的识别效果不佳，易出现空白结果）
+    elif blank_inst.raw_text == '' and blank_inst.ref_size > 1:
+        is_blank = H.blank_img_check(blank_inst.url)[0]
+        if is_blank:
+            FLAG_CORRECT = False
+            FLAG_CONFIDENT = True
+            blank_inst.step = '4'
+
+    # 5. 原始识别结果为一个删除符号，最终结果为空，易出现情况：学生修改后的结果未被识别出。需要运营检查
     elif blank_inst.raw_text == '|' and blank_inst.text == '':
         FLAG_CORRECT = False
         FLAG_CONFIDENT = False
-        blank_inst.step = '4'
-    
-    # 5. 多选题单独处理
-    elif '@@' in blank_inst.reference:
         blank_inst.step = '5'
     
-    # 6. 识别结果后半部分包含标准答案时。很大可能是学生作答正确但识别多识别出了字符的情况，例如：
+    # 6. 多选题单独处理
+    elif '@@' in blank_inst.reference:
+        blank_inst.step = '6'
+    
+    # 7. 识别结果后半部分包含标准答案时。很大可能是学生作答正确但识别多识别出了字符的情况，例如：
     #    {reference = 'ffice', text = 'o ffice'}, 模型将填空题首字母印刷体o也识别出来了
     elif (blank_inst.ans_size >= blank_inst.ref_size and 
           blank_inst.text[-blank_inst.ref_size:] == blank_inst.reference and 
@@ -220,9 +227,9 @@ def discriminator(blank_data):
             blank_inst.text not in key_words):
             FLAG_CORRECT = True
             FLAG_CONFIDENT = True
-            blank_inst.step = '6'
+            blank_inst.step = '7'
 
-    # 7. 对于易混淆字符的处理。若学生作答与正确答案只差一个字符，该字符属于易错字符且识别概率低于0.9，判为正确答案
+    # 8. 对于易混淆字符的处理。若学生作答与正确答案只差一个字符，该字符属于易错字符且识别概率低于0.9，判为正确答案
     #   {reference: 'move', text: 'more'}
     elif (blank_inst.ref_size>2 and 
           blank_inst.ans_size==blank_inst.ref_size and 
@@ -236,19 +243,19 @@ def discriminator(blank_data):
                     if clean_prob != [] and clean_prob[i] <= 0.9:
                         FLAG_CORRECT = True
                         FLAG_CONFIDENT = True
-                        blank_inst.step = '7'
+                        blank_inst.step = '8'
 
-    # 8. 识别结果中多出或者少了空格，大概率是正确答案
+    # 9. 识别结果中多出或者少了空格，大概率是正确答案
     elif blank_inst.pure_ref == blank_inst.pure_text and blank_inst.prob_avg >= 0.5:
         FLAG_CORRECT = True
         FLAG_CONFIDENT = True
-        blank_inst.step = '8'
-        
-    # 9. 若此时答案单词数依然大于3，有可能为长句子题型，需要人工检查
-    elif blank_inst.ans_word_size > 3:
         blank_inst.step = '9'
+        
+    # 10. 若此时答案单词数依然大于3，有可能为长句子题型，需要人工检查
+    elif blank_inst.ans_word_size > 3:
+        blank_inst.step = '10'
 
-    # 10. 编辑距离大于2，且平均置信度高于0.9，判为错误
+    # 11. 编辑距离大于2，且平均置信度高于0.9，判为错误
     elif (H.min_distance(blank_inst.pure_text, blank_inst.pure_ref) > 2 and 
           '|' not in blank_inst.raw_text and 
           blank_inst.prob_avg > 0.9 and
@@ -256,7 +263,7 @@ def discriminator(blank_data):
           blank_inst.pure_ref not in blank_inst.pure_text):
         FLAG_CORRECT = False
         FLAG_CONFIDENT = True
-        blank_inst.step = '10'
+        blank_inst.step = '11'
 
     if FLAG_CONFIDENT == False and blank_inst.FLAG_MULTI == False :
         res, prob = predict(blank_inst, CLF)
@@ -264,7 +271,7 @@ def discriminator(blank_data):
             FLAG_CONFIDENT = True
             FLAG_CORRECT = True if res == 1 else False
             FLAG_test = True
-            blank_inst.step = '11'
+            blank_inst.step = '12'
             
 
     result = {
@@ -277,7 +284,19 @@ def discriminator(blank_data):
 
 
 def predict(blank_inst, model=None):
-
+    """
+    Predict with specific model
+    
+    Arguments:
+        blank_inst {object} -- an instance of class Blank
+    
+    Keyword Arguments:
+        model {model} -- model as predictor (default: {None})
+    
+    Returns:
+        int -- predicted class name
+        float -- probability of the class
+    """
     col_names = [
         'prob_avg', 'text_size', 'ref_size', 'text_word_size',
         'ref_word_size', 'flag_short', 'flag_digit', 
@@ -288,7 +307,7 @@ def predict(blank_inst, model=None):
     ]
     features = generate_feature(blank_inst)
     features = pd.DataFrame([features, features], columns=col_names).iloc[0:1,:]
-    pred = CLF.predict_proba(features)
+    pred = model.predict_proba(features)
     return pred.argmax(), pred.max()
 
 
@@ -307,13 +326,22 @@ def ml_test():
     print df
         
 
+def exam_id_list():
+    LIST_files = glob.glob(r'./dataset/blank_data/*.json')
+    LIST_id = []
+    for item in LIST_files:
+        eid = os.path.basename(item)[0:-5]
+        LIST_id.append(eid)
+    json.dump(LIST_id, open('./dataset/exam_id.json', 'w'))
+
 
 if __name__=='__main__':
     TIME_s = time.time()
     # check_pass_rate()
-    filter()
+    # filter()
     # recogize()
     # ml_test()
+    exam_id_list()
     print 'Time cost: {} s'.format(time.time()-TIME_s)
     
 

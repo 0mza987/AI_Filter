@@ -4,7 +4,7 @@
 # Date:   2018-08-13 10:41:06
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-19 15:35:35
+# Last Modified At: 2018-09-27 15:55:38
 #======================================
 
 import os
@@ -128,8 +128,11 @@ def get_data_by_exam(eid):
         'pageSize': 5000
     }
     res = requests.get(URL, params=params)
+    while(res.status_code!=200):
+        print 'Retrying...'
+        res = requests.get(URL, params=params)
     exam_data = res.json()['data']
-    
+    print '{} amount: {}'.format(eid, len(exam_data))
     for item in exam_data:
         # re-generate the original 'marked' result
         if ans_equals_ref(item['detectResult'],item['reference']) and item['prob'] > 0.9:
@@ -137,7 +140,7 @@ def get_data_by_exam(eid):
         else:
             item['marked'] = True
         # get source image from url
-        item['local_addr'] = get_and_save_blank_image(item)
+        # item['local_addr'] = get_and_save_blank_image(item)
         
     return exam_data
 
@@ -148,7 +151,11 @@ def get_image_from_115(url):
     exam_id = url.split('/')[-4]
     pic_name = url.split('/')[-3].split('?')[0]
     URL = 'http://192.168.1.115/dcs/{}/{}'.format(exam_id, pic_name)
-    resp = requests.get(URL).content
+    resp = requests.get(URL)
+    while(resp.status_code!=200):
+        print 'Retry to get image {}'.format(pic_name)
+        resp = requests.get(URL)
+    resp = resp.content
     image = np.array(bytearray(resp), dtype=np.uint8)
     image = cv2.imdecode(image, cv2.IMREAD_GRAYSCALE)
     image = image[y:y+h, x:x+w]
@@ -176,7 +183,8 @@ def get_blank_from_dc():
     overall_data = []
     LIST_failed = []
     LIST_eid = json.load(open('./dataset/list_eid.json'))
-    for idx, eid in enumerate(LIST_eid):
+    # LIST_eid = ['f97dd4b6c3']
+    for idx, eid in enumerate(LIST_eid[0:]):
         print 'Processing: {}, {}/{}'.format(eid, idx+1, len(LIST_eid))
         try:
             exam_data = get_data_by_exam(eid)
@@ -207,7 +215,28 @@ def check_file():
     print 'Blank overall count:', len(overall)
     
 
+def create_exam(eid):
+    URL = 'http://dcs.hexin.im/api/exercise/create'
+    datas = {'exerciseUid':eid}
+    res = requests.post(URL, data=datas)
+    print 'response code: {}'.format(res.status_code)
+    while(res.status_code!=200):
+        print 'Retrying...'
+        res = requests.post(URL, data=datas)
+    resp = res.json()
+    print 'status: {}'.format(resp['status'])
+    print 'statusInfo: {}'.format(resp['statusInfo'])
+
+
+def create_wrapper():
+    LIST_eid = json.load(open('./dataset/list_eid.json'))
+    offset = 226
+    for idx, eid in enumerate(LIST_eid[offset:]):
+        print '############# {}: {}/{} #############'.format(eid, idx+offset+1, len(LIST_eid))
+        create_exam(eid)
+    
 
 if __name__ == '__main__':
-    # get_blank_from_dc()
-    recognition()
+    get_blank_from_dc()
+    # recognition()
+    # create_wrapper()

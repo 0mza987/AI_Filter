@@ -4,7 +4,7 @@
 # Date:   2018-09-08 15:29:50
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-12 17:09:39
+# Last Modified At: 2018-09-27 19:42:55
 #======================================
 
 import os
@@ -18,7 +18,7 @@ def client_test():
 
     cnt = 0
     right_cnt = 0
-    for idx, item in enumerate(dataset[0:10]):
+    for idx, item in enumerate(dataset[0:100]):
         print 'Processing {}/{}'.format(idx+1, len(dataset))
         result = blank_client.discriminate(item)['data']
         is_right = False
