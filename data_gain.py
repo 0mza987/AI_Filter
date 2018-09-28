@@ -4,7 +4,7 @@
 # Date:   2018-08-13 10:41:06
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-27 15:55:38
+# Last Modified At: 2018-09-28 10:04:12
 #======================================
 
 import os
@@ -151,6 +151,7 @@ def get_image_from_115(url):
     exam_id = url.split('/')[-4]
     pic_name = url.split('/')[-3].split('?')[0]
     URL = 'http://192.168.1.115/dcs/{}/{}'.format(exam_id, pic_name)
+    URL = 'http://192.168.0.126:8005/api/exercise/create'
     resp = requests.get(URL)
     while(resp.status_code!=200):
         print 'Retry to get image {}'.format(pic_name)
@@ -183,7 +184,7 @@ def get_blank_from_dc():
     overall_data = []
     LIST_failed = []
     LIST_eid = json.load(open('./dataset/list_eid.json'))
-    # LIST_eid = ['f97dd4b6c3']
+    # LIST_eid = ['1ea17ebad4']
     for idx, eid in enumerate(LIST_eid[0:]):
         print 'Processing: {}, {}/{}'.format(eid, idx+1, len(LIST_eid))
         try:
@@ -216,7 +217,8 @@ def check_file():
     
 
 def create_exam(eid):
-    URL = 'http://dcs.hexin.im/api/exercise/create'
+    # URL = 'http://dcs.hexin.im/api/exercise/create'
+    URL = 'http://192.168.0.126:8005/api/exercise/create'
     datas = {'exerciseUid':eid}
     res = requests.post(URL, data=datas)
     print 'response code: {}'.format(res.status_code)
@@ -230,13 +232,14 @@ def create_exam(eid):
 
 def create_wrapper():
     LIST_eid = json.load(open('./dataset/list_eid.json'))
-    offset = 226
+    offset = 0
     for idx, eid in enumerate(LIST_eid[offset:]):
         print '############# {}: {}/{} #############'.format(eid, idx+offset+1, len(LIST_eid))
         create_exam(eid)
     
 
 if __name__ == '__main__':
-    get_blank_from_dc()
+    # get_blank_from_dc()
     # recognition()
     # create_wrapper()
+    create_exam('1ea17ebad4')
