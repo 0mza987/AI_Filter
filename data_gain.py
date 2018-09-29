@@ -4,7 +4,7 @@
 # Date:   2018-08-13 10:41:06
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-28 19:38:36
+# Last Modified At: 2018-09-29 10:57:41
 #======================================
 
 import os
@@ -21,7 +21,7 @@ import requests
 import traceback
 import numpy as np
 
-from multiprocessing import Process, Pool
+from multiprocessing import Process, Pool, Queue
 
 IMAGE_PATH  = './dataset/blank_image'
 DATA_PATH   = './dataset/blank_data' 
@@ -70,13 +70,32 @@ def ans_equals_ref(ans, ref):
     return True if ans in LIST_ref else False
 
 
-def initialize_rpc():
+def initialize_rpc(idx):
+    """
+    Initialize the rpc client with specific idx
+    
+    Arguments:
+        idx {int} -- remote server port index
+    
+    Returns:
+        c_en_predict {obj} -- a client instance
+    """
     c_en_predict = zerorpc.Client(heartbeat=None, timeout=240)
-    c_en_predict.connect('tcp://192.168.1.115:12001')
+    c_en_predict.connect('tcp://192.168.1.115:1200{}'.format(idx))
     return c_en_predict
 
 
-def recognize_single(c_en_predict, fname):
+def recognize(c_en_predict, fname):
+    """
+    Method to recognize an image with rpc client
+    
+    Arguments:
+        c_en_predict {obj} -- an instance of rpc client
+        fname {string} -- file name
+    
+    Returns:
+        result {dict} -- dict data
+    """
     image_inst = {
         'img_str': _img_to_str_base64(data_convert_image(fname)), 
         'fname': os.path.basename(fname)
@@ -86,18 +105,51 @@ def recognize_single(c_en_predict, fname):
     return result
 
 
-def recognition_all():
-    """ Re-recognize all images and update results """
-    # RPC client
-    c_en_predict = initialize_rpc()
+def recognition_mp():
+    """
+    Multiprocessing method to recognize image data
+    """
+    LIST_exam_files = glob.glob(r'./dataset/blank_data/*.json')
+    overall_data = []
+    p = Pool(5)
+    res = p.map(recognition_single, LIST_exam_files)
+    p.close()
+    p.join()
+    for item in res:
+        overall_data += item
+    json.dump(overall_data, open('./dataset/updated_overall.json', 'w'))
+    random.shuffle(updated_data)
+    json.dump(updated_data[0:10000], open('./dataset/updated_sample.json', 'w'))
 
+# Multiprocessing queue
+valid_idx = Queue()
+for i in range(1,6):
+    valid_idx.put(i)
+
+
+def recognition_single(exam_file):
+    """
+    Recognize a specific exam's images and update results
+    
+    Arguments:
+        exam_file {string} -- file path
+    
+    Returns:
+        updated_data {dict} -- recognized results
+    """
     updated_data = []
-    overall_data = json.load(open('./dataset/blank_data_overall.json'))
-    for index, item in enumerate(overall_data[0:]):
-        if index % 1000 == 0: print 'Processing {} / {}'.format(index, len(overall_data))
+    exam_data = json.load(open(exam_file))
+    # global valid_idx
+    # if(len(valid_idx)!=0):
+    #     rpc_index = valid_idx.pop()
+    rpc_index = valid_idx.get()
+    c_en_predict = initialize_rpc(rpc_index)
+    print 'Processing: {}. Port index 1200{}'.format(os.path.basename(exam_file), rpc_index)
+    for index, item in enumerate(exam_data[0:]):
+        # if index % 1000 == 0: print '{}: {} / {}'.format(os.path.basename(exam_file), index, len(exam_data))
         fname = item['local_addr']
         try:
-            result = recognize_single(c_en_predict, fname)
+            result = recognize(c_en_predict, fname)
             # update recognition result for local data
             item['prob'] = result['prob']
             item['prob_val'] = result['prob_val']
@@ -111,15 +163,25 @@ def recognition_all():
             updated_data.append(item)
         except:
             print traceback.format_exc()
-            print 'Recognition failed. Index: {}'.format(index+1)
-    json.dump(updated_data, open('./dataset/updated_overall.json', 'w'))
-    print 'Original: {}. New: {}.'.format(len(overall_data), len(updated_data))
-    random.shuffle(updated_data)
-    json.dump(updated_data[0:10000], open('./dataset/updated_sample.json', 'w'))
+            print 'Recognition of {} failed. Index: {}'.format(exam_file, index+1)
+    print '###### Completed: {}. Filtered amount: {}.'.format(os.path.basename(exam_file),
+                                                              len(exam_data)-len(updated_data))
+    json.dump(updated_data, open(exam_file, 'w'))
+    valid_idx.put(rpc_index)
+    return updated_data
+
 
 
 def get_data_by_exam(eid):
-    """ get data from data center """
+    """
+    get data from data center
+    
+    Arguments:
+        eid {string} -- exam id
+    
+    Returns:
+        exam_data {dict} -- exam data
+    """
     URL = 'http://dcs.hexin.im/api/blank/getList'
     page = 1
     params = {
@@ -301,4 +363,5 @@ if __name__ == '__main__':
     # recognition()
     # create_wrapper()
     # generate_new_list()
-    download_online_images_mp()
+    # download_online_images_mp()
+    recognition_mp()
