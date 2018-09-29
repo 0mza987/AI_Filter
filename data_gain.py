@@ -4,7 +4,7 @@
 # Date:   2018-08-13 10:41:06
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-28 10:41:51
+# Last Modified At: 2018-09-28 19:38:36
 #======================================
 
 import os
@@ -21,6 +21,7 @@ import requests
 import traceback
 import numpy as np
 
+from multiprocessing import Process, Pool
 
 IMAGE_PATH  = './dataset/blank_image'
 DATA_PATH   = './dataset/blank_data' 
@@ -93,7 +94,6 @@ def recognition_all():
     updated_data = []
     overall_data = json.load(open('./dataset/blank_data_overall.json'))
     for index, item in enumerate(overall_data[0:]):
-        if item['local_addr'].split('/')[-2] == '6b262f90ea': continue # invalid exam id
         if index % 1000 == 0: print 'Processing {} / {}'.format(index, len(overall_data))
         fname = item['local_addr']
         try:
@@ -140,7 +140,7 @@ def get_data_by_exam(eid):
         else:
             item['marked'] = True
         # get source image from url
-        # item['local_addr'] = get_and_save_blank_image(item)
+        item['local_addr'] = get_and_save_blank_image(item)
         
     return exam_data
 
@@ -170,7 +170,8 @@ def get_and_save_blank_image(blank_data):
     if not os.path.exists(fpath):
         os.makedirs(fpath)
     if not os.path.isfile(os.path.join(fpath, fname)):
-        img = get_image_from_115(blank_data['url'])
+        # img = get_image_from_115(blank_data['url'])
+        img = data_convert_image(blank_data['url'])
         cv2.imwrite(os.path.join(fpath, fname), img)
     return os.path.abspath(os.path.join(fpath, fname))
 
@@ -216,6 +217,12 @@ def check_file():
     
 
 def create_exam(eid):
+    """
+    Create new exam data through eid
+    
+    Arguments:
+        eid {string} -- exercise id
+    """
     # URL = 'http://dcs.hexin.im/api/exercise/create'
     URL = 'http://192.168.0.126:8005/api/exercise/create'
     datas = {'exerciseUid':eid}
@@ -230,6 +237,9 @@ def create_exam(eid):
 
 
 def create_wrapper():
+    """
+    Wrapper of create_exam, create multiple exam data
+    """
     LIST_eid = json.load(open('./dataset/list_eid.json'))
     offset = 0
     for idx, eid in enumerate(LIST_eid[offset:]):
@@ -237,8 +247,58 @@ def create_wrapper():
         create_exam(eid)
     
 
+def generate_new_list():
+    """
+    Generate new eid list according to local files
+    """
+    LIST_files = glob.glob(r'./dataset/blank_data/*.json')
+    LIST_eid = []
+    for item in LIST_files:
+        LIST_eid.append(os.path.basename(item)[0:-5])
+    json.dump(LIST_eid, open('./dataset/new_list.json', 'w'))
+
+
+def download_online_images_single(efile):
+    """
+    Grab online images single job
+    
+    Arguments:
+        efile {string} -- json file path
+    """
+    eid = os.path.basename(efile)[0:-5]
+    print 'Processing: {}'.format(eid)
+    exam_data = json.load(open(efile))
+    for blank_data in exam_data:
+        blank_data['local_addr'] = get_and_save_blank_image(blank_data)
+    json.dump(exam_data, open(efile, 'w'))
+    return exam_data
+
+
+def download_online_images_mp():
+    """
+    Grab online images by multiprocessing
+    """
+    LIST_files = glob.glob(r'./dataset/blank_data/*.json')
+    overall_data = []
+    LIST_eid = []
+    
+    p = Pool(12)
+    res = p.map(download_online_images_single, LIST_files)
+    p.close()
+    p.join()
+
+    for item in res:
+        overall_data += item
+    json.dump(overall_data, open('./dataset/blank_data_overall.json', 'w'))
+    random.shuffle(overall_data)
+    sample_data = overall_data[0:10000]
+    json.dump(sample_data, open('./dataset/blank_data_sample.json', 'w'))
+
+
+
 if __name__ == '__main__':
-    get_blank_from_dc()
+    # get_blank_from_dc()
     # recognition()
     # create_wrapper()
-    # create_exam('1ea17ebad4')
+    # generate_new_list()
+    download_online_images_mp()

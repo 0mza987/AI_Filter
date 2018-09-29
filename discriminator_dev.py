@@ -4,7 +4,7 @@
 # Date:   2018-08-15 15:23:49
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-27 19:40:55
+# Last Modified At: 2018-09-28 19:45:38
 #======================================
 
 import os
@@ -43,7 +43,7 @@ def check_pass_rate(fname=''):
     fname = DATA_FILE[0]
     fname = DATA_FILE[1]
     # fname = 'blank_data_sample.json'
-    # fname = 'blank_data_overall.json'
+    fname = 'blank_data_overall.json'
     dataset = json.load(open('./dataset/{}'.format(fname)))
     pass_cnt_original = 0
     pass_cnt_new = 0
@@ -55,7 +55,7 @@ def check_pass_rate(fname=''):
         # elif filter_condition(item):
 
     print fname, len(dataset)
-    print 'New rate: {}. Old rate: {}'.format(pass_cnt_new*1.0/len(dataset), pass_cnt_original*1.0/len(dataset))
+    print 'New rate: {}'.format(pass_cnt_new*1.0/len(dataset))
 
 
 def filter_condition(blank_data):
@@ -197,7 +197,8 @@ def discriminator(blank_data):
 
     # 4. 识别结果为空，且答案长度大于1（模型对一两个字符的答案以及数字的识别效果不佳，易出现空白结果）
     elif blank_inst.raw_text == '' and blank_inst.ref_size > 1:
-        is_blank = H.blank_img_check(blank_inst.url)[0]
+        # is_blank = H.blank_img_check(blank_inst.url)[0]
+        is_blank = True
         if is_blank:
             FLAG_CORRECT = False
             FLAG_CONFIDENT = True
@@ -265,13 +266,13 @@ def discriminator(blank_data):
         FLAG_CONFIDENT = True
         blank_inst.step = '11'
 
-    if FLAG_CONFIDENT == False and blank_inst.FLAG_MULTI == False :
-        res, prob = predict(blank_inst, CLF)
-        if prob > 0.9:
-            FLAG_CONFIDENT = True
-            FLAG_CORRECT = True if res == 1 else False
-            FLAG_test = True
-            blank_inst.step = '12'
+    # if FLAG_CONFIDENT == False and blank_inst.FLAG_MULTI == False :
+    #     res, prob = predict(blank_inst, CLF)
+    #     if prob > 0.9:
+    #         FLAG_CONFIDENT = True
+    #         FLAG_CORRECT = True if res == 1 else False
+    #         FLAG_test = True
+    #         blank_inst.step = '12'
             
 
     result = {
@@ -337,11 +338,11 @@ def exam_id_list():
 
 if __name__=='__main__':
     TIME_s = time.time()
-    # check_pass_rate()
+    check_pass_rate()
     # filter()
     # recogize()
     # ml_test()
-    exam_id_list()
+    # exam_id_list()
     print 'Time cost: {} s'.format(time.time()-TIME_s)
     
 
