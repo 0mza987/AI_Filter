@@ -4,7 +4,7 @@
 # Date:   2018-08-15 15:23:49
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-28 19:45:38
+# Last Modified At: 2018-10-13 16:20:07
 #======================================
 
 import os
@@ -19,7 +19,7 @@ import helper as H
 import pandas as pd
 
 from Bio import pairwise2
-from data_gain import initialize_rpc, recognize_single, data_convert_image
+from data_gain import initialize_rpc, recognize, data_convert_image
 from generate_feature import generate_feature
 from sklearn.externals import joblib
 
@@ -37,98 +37,37 @@ LIST_ALIAS = [
 
 # load xgb classifier
 CLF = joblib.load('./models/xgb_clf.model')
+params = {'n_jobs':1, 'nthread':1}
+CLF.set_params(**params)
 
 def check_pass_rate(fname=''):
     ''' return pass rate of the data file '''
     fname = DATA_FILE[0]
     fname = DATA_FILE[1]
-    # fname = 'blank_data_sample.json'
-    fname = 'blank_data_overall.json'
     dataset = json.load(open('./dataset/{}'.format(fname)))
-    pass_cnt_original = 0
     pass_cnt_new = 0
     for item in dataset:
         # if item['marked'] == False:
         if discriminator(item)['confident'] == True:
-        # if filter_condition(item):
-            pass_cnt_original += 1
+            pass_cnt_new += 1
         # elif filter_condition(item):
 
     print fname, len(dataset)
     print 'New rate: {}'.format(pass_cnt_new*1.0/len(dataset))
 
 
-def filter_condition(blank_data):
-    ''' specific conditions to select blank data '''
-    res = False
-
-    blank_data = H.Blank(blank_data, valid=True)
-    # clean_prob  = locate_prob(raw_text, text, prob)
-
-    # if ans_equals_ref(text, reference) and prob_avg >= 0.5:
-    #     res =False
-        
-    # elif '@@' in reference:
-    #     pass
-    # if blank_data['isLong'] == True:
-    #     res = True
-    # if reference.isdigit() or ref_size==1:
-    #     pass
-
-    # elif raw_text == '' and ref_size>1:
-    #     b = [len(ans) for ans in reference.split('@@') if len(ans)<2]
-    #     info = blank_img_check(blank_data['url'])
-    #     is_blank = info[0]
-    #     if b == [] and is_blank:
-    #         blank_data['raw_black_cnt'] = info[1]
-    #         blank_data['raw_black_ratio'] = info[2]
-    #         res = True
-
-    # if raw_text == '|' and text == '':
-    #     res = True
-
-
-    # if min_distance(text, reference)==1 and ref_size>2 and ans_size==ref_size:
-    #     for i in xrange(ref_size):
-    #         if reference[i] != text[i]: 
-    #             char_pair = sorted([reference[i], text[i]])
-    #             if char_pair in LIST_ALIAS:
-    #                 clean_prob = locate_prob(raw_text, text, prob)
-    #                 # 注意这里可能返回空集合
-    #                 if clean_prob != [] and clean_prob[i] > 0.9:
-    #                     res = True
-
-
-    # f = discriminator(blank_data)
-    # if f[1]==True:
-    #     if f[0]==True and score==0:
-    #         res = True
-    #     elif f[0]==False and score!=0:
-    #         res=True
-    # if ''.join(text.split(' ')) == ''.join(reference.split(' ')) and score==0:
-    #     res = True
-
-    # if not reference.isdigit() and ref_size > 1 and '@@' not in reference:
-    #     if min_distance(text, reference)>2 and ref_size>2 and score!=0:
-    #         res = True
-        # if text!=reference and score!=0:
-        #     res = True
-    
-
-    # if reference=='':
-    #     res =True
-    return res 
-
-
 def filter():
     ''' filter data with certain conditions '''
-    fname = DATA_FILE[0]
+    fname = DATA_FILE[1]
     dataset = json.load(open('./dataset/{}'.format(fname)))
     res = []
-    for item in dataset:
+    for idx, item in enumerate(dataset):
+        if idx%10000 == 0:
+            print 'Processing {}/{}'.format(idx, len(dataset))
         ans = discriminator(item)
-        if ans['test'] == True and ans['correct'] == True:
+        if ans['step']=='13' and item['score']!=0:
             res.append(item)
+            item['weight'] = ans['weight']
     print '{} out of {} items are left. Ratio: {}'.format(len(res), len(dataset), len(res)*1.0/len(dataset))
     json.dump(res, open('./dataset/residual_data.json', 'w'))
 
@@ -170,7 +109,7 @@ def discriminator(blank_data):
     FLAG_CORRECT    = False
     FLAG_CONFIDENT  = False
     FLAG_test       = False
-    
+    prob = 0
     blank_inst = H.Blank(blank_data)
 
     # =============================================
@@ -178,7 +117,7 @@ def discriminator(blank_data):
     # =============================================
 
     # 1. 识别结果与答案相等，且识别概率在0.5以上
-    if H.ans_equals_ref(blank_inst.text, blank_inst.reference) and blank_inst.prob_avg >= 0.5:
+    if H.ans_equals_ref(blank_inst.text, blank_inst.reference) and blank_inst.prob_avg >= 0.6:
         FLAG_CORRECT = True
         FLAG_CONFIDENT = True
         blank_inst.step = '1'
@@ -223,9 +162,9 @@ def discriminator(blank_data):
         watch_out = ['at','to','in','the','has','have','had','be',
                      'being','is','was','are','been','im','more','less','un']
         # 部分易混淆的特殊情况，可单独添加. {reference: 'other', text: 'another'}
-        key_words = ['another', 'international']
+        key_words = ['other', 'national', 'cross']
         if (blank_inst.text[0:-blank_inst.ref_size].strip().lower() not in watch_out and 
-            blank_inst.text not in key_words):
+            blank_inst.reference not in key_words):
             FLAG_CORRECT = True
             FLAG_CONFIDENT = True
             blank_inst.step = '7'
@@ -266,20 +205,23 @@ def discriminator(blank_data):
         FLAG_CONFIDENT = True
         blank_inst.step = '11'
 
-    # if FLAG_CONFIDENT == False and blank_inst.FLAG_MULTI == False :
-    #     res, prob = predict(blank_inst, CLF)
-    #     if prob > 0.9:
-    #         FLAG_CONFIDENT = True
-    #         FLAG_CORRECT = True if res == 1 else False
-    #         FLAG_test = True
-    #         blank_inst.step = '12'
+    # 12,13 机器学习模型预测
+    if (FLAG_CONFIDENT == False and blank_inst.FLAG_MULTI == False and
+        blank_inst.ref_word_size <=3 and blank_inst.ans_word_size <=3):
+        # res, prob = predict(blank_inst, CLF)
+        predict(blank_inst, CLF)
+        pass
+        if prob > 0.9:
+            FLAG_CONFIDENT = True
+            FLAG_CORRECT = True if res == 1 else False
+            blank_inst.step = '12' if res == 1 else '13'
             
-
     result = {
         'correct': FLAG_CORRECT,
         'confident': FLAG_CONFIDENT,
         'step': blank_inst.step,
-        'test': FLAG_test
+        'test': FLAG_test,
+        'weight': round(prob, 4)
     }
     return result
 
@@ -308,8 +250,10 @@ def predict(blank_inst, model=None):
     ]
     features = generate_feature(blank_inst)
     features = pd.DataFrame([features, features], columns=col_names).iloc[0:1,:]
-    pred = model.predict_proba(features)
-    return pred.argmax(), pred.max()
+    # pred = model.predict_proba(features)
+    # return pred.argmax(), pred.max()
+    pred = model.predict(features)
+    return pred
 
 
 def ml_test():
@@ -336,10 +280,21 @@ def exam_id_list():
     json.dump(LIST_id, open('./dataset/exam_id.json', 'w'))
 
 
+def rectify(fname):
+    # fname = './dataset/updated_overall.json'
+    dataset = json.load(open(fname))
+    for item in dataset:
+        result = discriminator(item)
+        if result['step']=='1':
+            item['score'] = item['totalScore']
+    json.dump(dataset, open(fname, 'w'))
+
+
 if __name__=='__main__':
     TIME_s = time.time()
-    check_pass_rate()
-    # filter()
+    # check_pass_rate()
+    filter()
+    # rectify()
     # recogize()
     # ml_test()
     # exam_id_list()

@@ -4,7 +4,7 @@
 # Date:   2018-09-13 10:13:09
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-13 20:48:50
+# Last Modified At: 2018-09-29 19:11:59
 #======================================
 
 import os
@@ -171,6 +171,8 @@ def generate_csv():
         if (idx%1000)==0:
             print 'Processing index: {}/{}'.format(idx, len(dataset))
         blank_inst = H.Blank(blank_data)
+        if blank_inst.ref_word_size > 3 or blank_inst.ans_word_size > 3:
+            continue
         correct = 0 if blank_data['score'] == 0 else 1
         data_rows.append([correct]+generate_feature(blank_inst))
     random.shuffle(data_rows)

@@ -4,7 +4,7 @@
 # Date:   2018-08-13 10:41:06
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-29 10:57:41
+# Last Modified At: 2018-09-30 09:29:46
 #======================================
 
 import os
@@ -118,8 +118,8 @@ def recognition_mp():
     for item in res:
         overall_data += item
     json.dump(overall_data, open('./dataset/updated_overall.json', 'w'))
-    random.shuffle(updated_data)
-    json.dump(updated_data[0:10000], open('./dataset/updated_sample.json', 'w'))
+    random.shuffle(overall_data)
+    json.dump(overall_data[0:10000], open('./dataset/updated_sample.json', 'w'))
 
 # Multiprocessing queue
 valid_idx = Queue()

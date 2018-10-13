@@ -4,7 +4,7 @@
 # Date:   2018-09-08 15:29:50
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-28 14:40:41
+# Last Modified At: 2018-10-13 14:29:08
 #======================================
 
 import os
@@ -12,13 +12,13 @@ import json
 import zerorpc
 
 def client_test():
-    dataset = json.load(open('./dataset/updated_sample.json'))
+    dataset = json.load(open('./dataset/updated_overall.json'))
     blank_client = zerorpc.Client(heartbeat=None, timeout=30)
     blank_client.connect('tcp://192.168.1.57:21000')
 
     cnt = 0
     right_cnt = 0
-    for idx, item in enumerate(dataset[0:100]):
+    for idx, item in enumerate(dataset[0:]):
         print 'Processing {}/{}'.format(idx+1, len(dataset))
         result = blank_client.discriminate(item)['data']
         is_right = False
@@ -38,10 +38,10 @@ def custom_test():
     local test with customized parameters
     """
     # 自定义数据
-    reference = 'will suggest'
-    text = 'suggested suggest'
+    reference = 'is interviewing'
+    text = 'is interview'
     raw_text = text
-    prob = [0.8] * len(raw_text)
+    prob = [0.9] * len(raw_text)
     prob_val = sum(prob) / len(prob)
 
     blank_data = {
