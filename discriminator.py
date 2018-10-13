@@ -4,7 +4,7 @@
 # Date:   2018-09-10 17:08:11
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-27 19:37:06
+# Last Modified At: 2018-09-27 19:53:11
 #======================================
 
 import os
@@ -139,10 +139,16 @@ def discriminator(blank_data):
         FLAG_CONFIDENT = True
         blank_inst.step = '11'
 
+    # 当判断为正确的时候给出suggested answer
+    suggested = blank_inst.text
+    if FLAG_CONFIDENT == True and FLAG_CORRECT == True and blank_inst.FLAG_MULTI == False:
+        sugguested = blank_inst.reference
+
     result = {
         'correct': FLAG_CORRECT,
         'confident': FLAG_CONFIDENT,
-        'step': blank_inst.step
+        'step': blank_inst.step,
+        'suggested': suggested
     }
     return result
 
