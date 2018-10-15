@@ -4,7 +4,7 @@
 # Date:   2018-09-10 17:08:11
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-27 19:53:11
+# Last Modified At: 2018-10-15 11:40:17
 #======================================
 
 import os
@@ -129,10 +129,10 @@ def discriminator(blank_data):
     elif blank_inst.ans_word_size > 3:
         blank_inst.step = '10'
 
-    # 11. 编辑距离大于2，且平均置信度高于0.9，判为错误
+    # 11. 编辑距离大于2，且平均置信度高于0.95，判为错误
     elif (H.min_distance(blank_inst.pure_text, blank_inst.pure_ref) > 2 and 
           '|' not in blank_inst.raw_text and 
-          blank_inst.prob_avg > 0.9 and
+          blank_inst.prob_avg > 0.95 and
           blank_inst.pure_text not in blank_inst.pure_ref and 
           blank_inst.pure_ref not in blank_inst.pure_text):
         FLAG_CORRECT = False
@@ -142,7 +142,7 @@ def discriminator(blank_data):
     # 当判断为正确的时候给出suggested answer
     suggested = blank_inst.text
     if FLAG_CONFIDENT == True and FLAG_CORRECT == True and blank_inst.FLAG_MULTI == False:
-        sugguested = blank_inst.reference
+        suggested = blank_inst.reference
 
     result = {
         'correct': FLAG_CORRECT,

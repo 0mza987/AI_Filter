@@ -4,7 +4,7 @@
 # Date:   2018-09-08 15:29:50
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-10-13 14:29:08
+# Last Modified At: 2018-10-13 20:31:50
 #======================================
 
 import os
@@ -38,8 +38,8 @@ def custom_test():
     local test with customized parameters
     """
     # 自定义数据
-    reference = 'is interviewing'
-    text = 'is interview'
+    reference = 'interview'
+    text = 'fas interview'
     raw_text = text
     prob = [0.9] * len(raw_text)
     prob_val = sum(prob) / len(prob)
@@ -50,6 +50,7 @@ def custom_test():
         'raw_text': raw_text,
         'prob': prob,
         'prob_val': prob_val,
+        'url': ''
     }
     # 调用本地RPC服务
     blank_client = zerorpc.Client(heartbeat=None, timeout=30)
@@ -62,7 +63,9 @@ def custom_test():
     Raw text: "{}"
     Confident: "{}"
     Correct: "{}"
-    Step: "{}"'''.format(reference,text,raw_text,result['confident'],result['correct'],result['step'])
+    Step: "{}"
+    Suggested: "{}"'''.format(reference,text,raw_text,result['confident'],
+                              result['correct'],result['step'],result['suggested'])
 
 if __name__ == '__main__':
     # client_test()

@@ -4,10 +4,11 @@
 # Date:   2018-08-15 15:23:49
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-10-13 16:33:44
+# Last Modified At: 2018-10-15 19:49:45
 #======================================
 
 import os
+# os.environ['OMP_NUM_THREADS'] = '1'
 import cv2
 import glob
 import json
@@ -35,10 +36,9 @@ LIST_ALIAS = [
     sorted(['i','l'])
 ]
 
-# load xgb classifier
+# load xgb classifier and run with only 1 thread
 CLF = joblib.load('./models/xgb_clf.model')
-params = {'n_jobs':1, 'nthread':1}
-CLF.set_params(**params)
+CLF._Booster.set_param('nthread', 1)
 
 def check_pass_rate(fname=''):
     ''' return pass rate of the data file '''
@@ -58,14 +58,14 @@ def check_pass_rate(fname=''):
 
 def filter():
     ''' filter data with certain conditions '''
-    fname = DATA_FILE[1]
+    fname = DATA_FILE[0]
     dataset = json.load(open('./dataset/{}'.format(fname)))
     res = []
     for idx, item in enumerate(dataset):
         if idx%10000 == 0:
             print 'Processing {}/{}'.format(idx, len(dataset))
         ans = discriminator(item)
-        if ans['step']=='13' and item['score']!=0:
+        if ans['step']=='11':
             res.append(item)
             item['weight'] = ans['weight']
     print '{} out of {} items are left. Ratio: {}'.format(len(res), len(dataset), len(res)*1.0/len(dataset))
@@ -195,10 +195,10 @@ def discriminator(blank_data):
     elif blank_inst.ans_word_size > 3:
         blank_inst.step = '10'
 
-    # 11. 编辑距离大于2，且平均置信度高于0.9，判为错误
+    # 11. 编辑距离大于2，且平均置信度高于0.92，判为错误
     elif (H.min_distance(blank_inst.pure_text, blank_inst.pure_ref) > 2 and 
           '|' not in blank_inst.raw_text and 
-          blank_inst.prob_avg > 0.9 and
+          blank_inst.prob_avg > 0.95 and
           blank_inst.pure_text not in blank_inst.pure_ref and 
           blank_inst.pure_ref not in blank_inst.pure_text):
         FLAG_CORRECT = False
@@ -206,20 +206,18 @@ def discriminator(blank_data):
         blank_inst.step = '11'
 
     # 12,13 机器学习模型预测
-    if (FLAG_CONFIDENT == False and blank_inst.FLAG_MULTI == False and
-        blank_inst.ref_word_size <=3 and blank_inst.ans_word_size <=3):
-        # res, prob = predict(blank_inst, CLF)
-        predict(blank_inst, CLF)
-        pass
-        if prob > 0.9:
-            FLAG_CONFIDENT = True
-            FLAG_CORRECT = True if res == 1 else False
-            blank_inst.step = '12' if res == 1 else '13'
+    # if (FLAG_CONFIDENT == False and blank_inst.FLAG_MULTI == False and
+    #     blank_inst.ref_word_size <=3 and blank_inst.ans_word_size <=3):
+    #     res, prob = predict(blank_inst, CLF)
+    #     if prob > 0.9:
+    #         FLAG_CONFIDENT = True
+    #         FLAG_CORRECT = True if res == 1 else False
+    #         blank_inst.step = '12' if res == 1 else '13'
             
     # 当判断为正确的时候给出suggested answer
     suggested = blank_inst.text
     if FLAG_CONFIDENT == True and FLAG_CORRECT == True and blank_inst.FLAG_MULTI == False:
-        sugguested = blank_inst.reference
+        suggested = blank_inst.reference
 
     result = {
         'correct': FLAG_CORRECT,
@@ -256,10 +254,10 @@ def predict(blank_inst, model=None):
     ]
     features = generate_feature(blank_inst)
     features = pd.DataFrame([features, features], columns=col_names).iloc[0:1,:]
-    # pred = model.predict_proba(features)
-    # return pred.argmax(), pred.max()
-    pred = model.predict(features)
-    return pred
+    pred = model.predict_proba(features)
+    return pred.argmax(), pred.max()
+    # pred = model.predict(features)
+    # return pred
 
 
 def ml_test():
