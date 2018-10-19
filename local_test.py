@@ -4,7 +4,7 @@
 # Date:   2018-09-08 15:29:50
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-10-13 20:31:50
+# Last Modified At: 2018-10-19 11:42:39
 #======================================
 
 import os
@@ -38,15 +38,15 @@ def custom_test():
     local test with customized parameters
     """
     # 自定义数据
-    reference = 'interview'
-    text = 'fas interview'
+    reference = 'collection'
+    text = 'dlection'
     raw_text = text
-    prob = [0.9] * len(raw_text)
+    prob = [0.95] * len(raw_text)
     prob_val = sum(prob) / len(prob)
 
     blank_data = {
         'reference': reference,
-        'detectResult': text,
+        'text': text,
         'raw_text': raw_text,
         'prob': prob,
         'prob_val': prob_val,

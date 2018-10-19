@@ -4,7 +4,7 @@
 # Date:   2018-09-12 16:51:26
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-10-13 20:33:40
+# Last Modified At: 2018-10-19 11:52:55
 #======================================
 
 import os
@@ -95,6 +95,19 @@ def min_distance(s1, s2):
     return matrix[n][m]
 
 
+def lcs_length(s1, s2):
+    n = len(s1)
+    m = len(s2)
+    matrix = [([0]*(m+1)) for i in xrange(n+1)]
+    for i in xrange(1, n+1):
+        for j in xrange(1, m+1):
+            if(s1[i-1]==s2[j-1]):
+                matrix[i][j] = matrix[i-1][j-1] + 1
+            else:
+                matrix[i][j] = max(matrix[i-1][j], matrix[i][j-1])
+    return matrix[n][m]
+
+
 def blank_img_check(url):
     """ check if the image is blank through image """
     img = data_convert_image(url)
@@ -123,7 +136,7 @@ class Blank(object):
         """
         self.step       = '0'
         self.raw_text   = blank_data['raw_text'].lower()        # 原始识别结果，包含删除符号，标点符号
-        self.text       = blank_data['detectResult'].lower()    # 干净识别结果，只有字符与空格
+        self.text       = blank_data['text'].lower()            # 干净识别结果，只有字符与空格
         self.reference  = blank_data['reference'].lower()       # 标准答案
         self.prob       = blank_data['prob']                    # 对应原始识别结果的概率list
         self.prob_avg   = blank_data['prob_val']                # 概率list的平均值
@@ -159,6 +172,8 @@ class Blank(object):
             pure_ref    = pure_ref.replace(item, '')
         self.pure_text  = pure_text
         self.pure_ref   = pure_ref
+        self.pure_text_size = len(self.pure_text)
+        self.pure_ref_size  = len(self.pure_ref)
 
 
 if __name__ == '__main__':

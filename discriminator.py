@@ -4,7 +4,7 @@
 # Date:   2018-09-10 17:08:11
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-10-15 11:40:17
+# Last Modified At: 2018-10-19 11:52:01
 #======================================
 
 import os
@@ -133,8 +133,8 @@ def discriminator(blank_data):
     elif (H.min_distance(blank_inst.pure_text, blank_inst.pure_ref) > 2 and 
           '|' not in blank_inst.raw_text and 
           blank_inst.prob_avg > 0.95 and
-          blank_inst.pure_text not in blank_inst.pure_ref and 
-          blank_inst.pure_ref not in blank_inst.pure_text):
+          H.lcs_length(blank_inst.pure_text, blank_inst.pure_ref) < 
+          0.8 * min(blank_inst.pure_text_size, blank_inst.pure_ref_size)):
         FLAG_CORRECT = False
         FLAG_CONFIDENT = True
         blank_inst.step = '11'
