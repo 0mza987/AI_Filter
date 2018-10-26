@@ -4,7 +4,7 @@
 # Date:   2018-09-10 17:08:11
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-10-19 11:52:01
+# Last Modified At: 2018-10-19 11:52:08
 #======================================
 
 import os
@@ -52,7 +52,7 @@ def discriminator(blank_data):
     # =============================================
 
     # 1. 识别结果与答案相等，且识别概率在0.5以上
-    if H.ans_equals_ref(blank_inst.text, blank_inst.reference) and blank_inst.prob_avg >= 0.5:
+    if H.ans_equals_ref(blank_inst.text, blank_inst.reference) and blank_inst.prob_avg >= 0.6:
         FLAG_CORRECT = True
         FLAG_CONFIDENT = True
         blank_inst.step = '1'
@@ -71,17 +71,23 @@ def discriminator(blank_data):
 
     # 4. 识别结果为空，且答案长度大于1（模型对一两个字符的答案以及数字的识别效果不佳，易出现空白结果）
     elif blank_inst.raw_text == '' and blank_inst.ref_size > 1:
-        is_blank = H.blank_img_check(blank_inst.url)[0]
+        is_blank, _, black_ratio = H.blank_img_check(blank_inst.url)
+        # is_blank = True
         if is_blank:
             FLAG_CORRECT = False
             FLAG_CONFIDENT = True
             blank_inst.step = '4'
+        elif black_ratio > 0.04:
+            blank_inst.step = '104'             # 出现频率：0.0025
 
     # 5. 原始识别结果为一个删除符号，最终结果为空，易出现情况：学生修改后的结果未被识别出。需要运营检查
     elif blank_inst.raw_text == '|' and blank_inst.text == '':
+        is_blank, _, black_ratio = H.blank_img_check(blank_inst.url)
         FLAG_CORRECT = False
         FLAG_CONFIDENT = False
         blank_inst.step = '5'
+        if black_ratio < 0.02:
+            blank_inst.step = '105'             # 出现频率：0.0105
     
     # 6. 多选题单独处理
     elif '@@' in blank_inst.reference:
@@ -96,9 +102,9 @@ def discriminator(blank_data):
         watch_out = ['at','to','in','the','has','have','had','be',
                      'being','is','was','are','been','im','more','less','un']
         # 部分易混淆的特殊情况，可单独添加. {reference: 'other', text: 'another'}
-        key_words = ['another', 'international']
+        key_words = ['other', 'national', 'cross']
         if (blank_inst.text[0:-blank_inst.ref_size].strip().lower() not in watch_out and 
-            blank_inst.text not in key_words):
+            blank_inst.reference not in key_words):
             FLAG_CORRECT = True
             FLAG_CONFIDENT = True
             blank_inst.step = '7'
@@ -118,6 +124,8 @@ def discriminator(blank_data):
                         FLAG_CORRECT = True
                         FLAG_CONFIDENT = True
                         blank_inst.step = '8'
+                else:
+                    blank_inst.step = '108'
 
     # 9. 识别结果中多出或者少了空格，大概率是正确答案
     elif blank_inst.pure_ref == blank_inst.pure_text and blank_inst.prob_avg >= 0.5:
@@ -138,6 +146,9 @@ def discriminator(blank_data):
         FLAG_CORRECT = False
         FLAG_CONFIDENT = True
         blank_inst.step = '11'
+
+    if blank_inst.step == '0' and 0 < blank_inst.prob_avg < 0.7:
+        blank_inst.step = '199'
 
     # 当判断为正确的时候给出suggested answer
     suggested = blank_inst.text

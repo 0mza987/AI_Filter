@@ -4,7 +4,7 @@
 # Date:   2018-09-12 16:51:26
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-10-19 11:52:55
+# Last Modified At: 2018-10-23 15:44:37
 #======================================
 
 import os
@@ -96,6 +96,7 @@ def min_distance(s1, s2):
 
 
 def lcs_length(s1, s2):
+    """ Calculate largest common sequence between 2 strings """
     n = len(s1)
     m = len(s2)
     matrix = [([0]*(m+1)) for i in xrange(n+1)]

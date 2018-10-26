@@ -4,7 +4,7 @@
 # Date:   2018-08-15 15:23:49
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-10-16 19:22:42
+# Last Modified At: 2018-10-26 15:47:54
 #======================================
 
 import os
@@ -58,16 +58,15 @@ def check_pass_rate(fname=''):
 
 def filter():
     ''' filter data with certain conditions '''
-    fname = DATA_FILE[1]
+    fname = DATA_FILE[0]
     dataset = json.load(open('./dataset/{}'.format(fname)))
     res = []
     for idx, item in enumerate(dataset):
         if idx%10000 == 0:
             print 'Processing {}/{}'.format(idx, len(dataset))
         ans = discriminator(item)
-        if ans['step']=='13' and item['score']!=0:
+        if ans['step']=='199':
             res.append(item)
-            item['weight'] = ans['weight']
     print '{} out of {} items are left. Ratio: {}'.format(len(res), len(dataset), len(res)*1.0/len(dataset))
     json.dump(res, open('./dataset/residual_data.json', 'w'))
 
@@ -136,18 +135,23 @@ def discriminator(blank_data):
 
     # 4. 识别结果为空，且答案长度大于1（模型对一两个字符的答案以及数字的识别效果不佳，易出现空白结果）
     elif blank_inst.raw_text == '' and blank_inst.ref_size > 1:
-        # is_blank = H.blank_img_check(blank_inst.url)[0]
-        is_blank = True
+        is_blank, _, black_ratio = H.blank_img_check(blank_inst.url)
+        # is_blank = True
         if is_blank:
             FLAG_CORRECT = False
             FLAG_CONFIDENT = True
             blank_inst.step = '4'
+        elif black_ratio > 0.04:
+            blank_inst.step = '104'             # 出现频率：0.0025
 
     # 5. 原始识别结果为一个删除符号，最终结果为空，易出现情况：学生修改后的结果未被识别出。需要运营检查
     elif blank_inst.raw_text == '|' and blank_inst.text == '':
+        is_blank, _, black_ratio = H.blank_img_check(blank_inst.url)
         FLAG_CORRECT = False
         FLAG_CONFIDENT = False
         blank_inst.step = '5'
+        if black_ratio < 0.02:
+            blank_inst.step = '105'             # 出现频率：0.0105
     
     # 6. 多选题单独处理
     elif '@@' in blank_inst.reference:
@@ -184,6 +188,8 @@ def discriminator(blank_data):
                         FLAG_CORRECT = True
                         FLAG_CONFIDENT = True
                         blank_inst.step = '8'
+                else:
+                    blank_inst.step = '108'
 
     # 9. 识别结果中多出或者少了空格，大概率是正确答案
     elif blank_inst.pure_ref == blank_inst.pure_text and blank_inst.prob_avg >= 0.5:
@@ -199,30 +205,33 @@ def discriminator(blank_data):
     elif (H.min_distance(blank_inst.pure_text, blank_inst.pure_ref) > 2 and 
           '|' not in blank_inst.raw_text and 
           blank_inst.prob_avg > 0.95 and
-          blank_inst.pure_text not in blank_inst.pure_ref and 
-          blank_inst.pure_ref not in blank_inst.pure_text):
+          H.lcs_length(blank_inst.pure_text, blank_inst.pure_ref) < 
+          0.8 * min(blank_inst.pure_text_size, blank_inst.pure_ref_size)):
         FLAG_CORRECT = False
         FLAG_CONFIDENT = True
         blank_inst.step = '11'
 
     # 12,13 机器学习模型预测
-    if (FLAG_CONFIDENT == False and blank_inst.FLAG_MULTI == False and
-        blank_inst.ref_word_size <=3 and blank_inst.ans_word_size <=3):
-        res, prob = predict(blank_inst, CLF)
-        if prob > 0.9:
-            if res == 1:
-                FLAG_CONFIDENT = True
-                FLAG_CORRECT = True
-                blank_inst.step = '12'
-            elif res == 0:
-                if ('|' not in blank_inst.raw_text and 
-                    blank_inst.prob_avg > 0.9 and
-                    blank_inst.pure_text not in blank_inst.pure_ref and 
-                    blank_inst.pure_ref not in blank_inst.pure_text):
-                    FLAG_CONFIDENT = True
-                    FLAG_CORRECT = False
-                    blank_inst.step = '13'
-            
+    # if (FLAG_CONFIDENT == False and blank_inst.FLAG_MULTI == False and
+    #     blank_inst.ref_word_size <=3 and blank_inst.ans_word_size <=3):
+    #     res, prob = predict(blank_inst, CLF)
+    #     if prob > 0.9:
+    #         if res == 1:
+    #             FLAG_CONFIDENT = True
+    #             FLAG_CORRECT = True
+    #             blank_inst.step = '12'
+    #         elif res == 0:
+    #             if ('|' not in blank_inst.raw_text and 
+    #                 blank_inst.prob_avg > 0.9 and
+    #                 blank_inst.pure_text not in blank_inst.pure_ref and 
+    #                 blank_inst.pure_ref not in blank_inst.pure_text):
+    #                 FLAG_CONFIDENT = True
+    #                 FLAG_CORRECT = False
+    #                 blank_inst.step = '13'
+
+    if blank_inst.step == '0' and 0 < blank_inst.prob_avg < 0.7:
+        blank_inst.step = '199'
+
     # 当判断为正确的时候给出suggested answer
     suggested = blank_inst.text
     if FLAG_CONFIDENT == True and FLAG_CORRECT == True and blank_inst.FLAG_MULTI == False:

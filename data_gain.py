@@ -4,7 +4,7 @@
 # Date:   2018-08-13 10:41:06
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-30 09:29:46
+# Last Modified At: 2018-09-30 09:29:49
 #======================================
 
 import os
@@ -285,8 +285,8 @@ def create_exam(eid):
     Arguments:
         eid {string} -- exercise id
     """
-    # URL = 'http://dcs.hexin.im/api/exercise/create'
-    URL = 'http://192.168.0.126:8005/api/exercise/create'
+    URL = 'http://dcs.hexin.im/api/exercise/create'
+    # URL = 'http://192.168.0.126:8005/api/exercise/create'
     datas = {'exerciseUid':eid}
     res = requests.post(URL, data=datas)
     print 'response code: {}'.format(res.status_code)
