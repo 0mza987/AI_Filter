@@ -4,7 +4,7 @@
 # Date:   2018-08-13 10:41:06
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-09-30 09:29:49
+# Last Modified At: 2018-10-26 17:07:32
 #======================================
 
 import os
@@ -172,37 +172,43 @@ def recognition_single(exam_file):
 
 
 
-def get_data_by_exam(eid):
+def get_data_by_exam(eid, Sampling=False):
     """
     get data from data center
     
     Arguments:
         eid {string} -- exam id
-    
+        Sampling {bool} -- if true, only get the first page's data, false for all pages
+
     Returns:
         exam_data {dict} -- exam data
     """
     URL = 'http://dcs.hexin.im/api/blank/getList'
     page = 1
-    params = {
-        'exerciseUid': eid,
-        'page': page,
-        'pageSize': 5000
-    }
-    res = requests.get(URL, params=params)
-    while(res.status_code!=200):
-        print 'Retrying...'
+    FLAG_continue = True
+    exam_data = []
+    while(FLAG_continue):
+        params = {
+            'exerciseUid': eid,
+            'page': page,
+            'pageSize': 5000
+        }
         res = requests.get(URL, params=params)
-    exam_data = res.json()['data']
+        while(res.status_code!=200):
+            print 'Retrying...'
+            res = requests.get(URL, params=params)
+        page_data = res.json()['data']
+        if Sampling == True or len(page_data)==0:
+            FLAG_continue = False
+        exam_data += page_data
+        page += 1
+
     print '{} amount: {}'.format(eid, len(exam_data))
     for item in exam_data:
-        # re-generate the original 'marked' result
-        if ans_equals_ref(item['detectResult'],item['reference']) and item['prob'] > 0.9:
-            item['marked'] = False
-        else:
-            item['marked'] = True
         # get source image from url
-        item['local_addr'] = get_and_save_blank_image(item)
+        # item['local_addr'] = get_and_save_blank_image(item)
+        item['text'] = item['detectResult']
+        del item['detectResult']
         
     return exam_data
 
