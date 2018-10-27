@@ -4,7 +4,7 @@
 # Date:   2018-08-13 10:41:06
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-10-26 17:07:32
+# Last Modified At: 2018-10-27 11:59:15
 #======================================
 
 import os
@@ -154,12 +154,7 @@ def recognition_single(exam_file):
             item['prob'] = result['prob']
             item['prob_val'] = result['prob_val']
             item['raw_text'] = result['raw_text']
-            item['detectResult'] = result['text'].strip()
-            # re-generate the original 'marked' result
-            if ans_equals_ref(item['detectResult'],item['reference']) and item['prob_val'] > 0.9:
-                item['marked'] = False
-            else:
-                item['marked'] = True
+            item['text'] = result['text'].strip()
             updated_data.append(item)
         except:
             print traceback.format_exc()
