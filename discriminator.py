@@ -4,7 +4,7 @@
 # Date:   2018-09-10 17:08:11
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-10-27 10:57:20
+# Last Modified At: 2018-10-27 15:31:24
 #======================================
 
 import os
@@ -60,6 +60,8 @@ def discriminator(blank_data):
     # 2. 答案为单个字符,数字或者长句子的情况，单独处理
     elif blank_inst.FLAG_DIGIT or blank_inst.FLAG_SHORT:
         blank_inst.step = '2'
+        if blank_inst.prob_avg < 0.9:
+            blank_inst.step = '102'
 
     # 3. 答案为长句子/词组的情况，单独处理
     elif blank_inst.ref_word_size > 3:
@@ -99,8 +101,8 @@ def discriminator(blank_data):
           blank_inst.text[-blank_inst.ref_size:] == blank_inst.reference and 
           blank_inst.ref_size >= (blank_inst.ans_size/2)):
         # 若text前半部分为以下词汇，则不进行机器判定(e.g. {reference: 'know', text: 'to know'})
-        watch_out = ['at','to','in','the','has','have','had','be',
-                     'being','is','was','are','been','im','more','less','un']
+        watch_out = ['at','to','in','the','has','have','had','be','being',
+                     'is','was','are','been','im','more','less','un','tobe']
         # 部分易混淆的特殊情况，可单独添加. {reference: 'other', text: 'another'}
         key_words = ['other', 'national', 'cross']
         if (blank_inst.text[0:-blank_inst.ref_size].strip().lower() not in watch_out and 

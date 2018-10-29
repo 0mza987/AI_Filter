@@ -4,7 +4,7 @@
 # Date:   2018-10-26 17:16:54
 # 
 # Last Modified By: honglin
-# Last Modified At: 2018-10-27 11:45:03
+# Last Modified At: 2018-10-27 15:45:40
 #======================================
 
 import os
@@ -14,6 +14,10 @@ import datetime
 
 import data_gain as D
 
+REVIEW_DIR = './dataset/daily_review'
+if not os.path.exists(REVIEW_DIR): os.makedirs(REVIEW_DIR)
+
+
 def download():
     eid = '3e3c71388e'
     exam_data = D.get_data_by_exam(eid)
@@ -22,12 +26,20 @@ def download():
 def review():
     """
     Review everyday's blank data and do the math.
+    Introductions:
+        '9'     : 识别结果中多出或少了空格
+        '102'   : 识别结果为数字或者单个字符
+        '104'   : 识别结果为空，但图片不为空
+        '105'   : 识别结果为删除符号，但图片为空
+        '108'   : 识别结果与标准答案相差一个字符
+        '199'   : 其他，且平均识别概率低于阈值
     """
     # Prepare the data
     LIST_eid = []
     res = {
         # 'step': [amount, ratio]
-        '2': [0, 0],
+        '9': [0, 0],
+        '102': [0, 0],
         '104': [0, 0],
         '105': [0, 0],
         '108': [0, 0],
